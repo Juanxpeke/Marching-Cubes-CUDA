@@ -18,6 +18,17 @@ struct cudaGraphicsResource *cudaVBOResource;
 // Animation time
 float animTime = 0.0;
 
+// ===================================
+// ======== Density functions ========
+// ===================================
+
+float densityBase(float3 ws)
+{
+  float density = -ws.y;
+
+  return density; 
+}
+
 // ========================================================
 // ======== Cuda Kernel to modify vertex positions ========
 // ========================================================
@@ -45,7 +56,7 @@ void runCuda(struct cudaGraphicsResource **cudaVBOResourcePointer)
   float3 *dptr;
   cudaGraphicsMapResources(1, cudaVBOResourcePointer, 0);
   size_t numBytes;
-  cudaGraphicsResourceGetMappedPointer((void **)&dptr, &numBytes, *cudaVBOResourcePointer);
+  cudaGraphicsResourceGetMappedPointer((void**) &dptr, &numBytes, *cudaVBOResourcePointer);
   
   // printf("CUDA mapped VBO: May access %ld bytes\n", num_bytes);
 
@@ -66,6 +77,11 @@ std::string getFileContent(const char* filename)
 {
   std::ifstream file(filename);
 
+  if (!file) {
+    std::cout << "Error reading the file " << filename;
+    exit(0);
+  }
+
   if (file.is_open())
   {
     std::string content((std::istreambuf_iterator<char>(file)),
@@ -83,8 +99,8 @@ std::string getFileContent(const char* filename)
 int main()
 {
   glfwInit();
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
+  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
