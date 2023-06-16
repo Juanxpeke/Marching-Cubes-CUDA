@@ -1,13 +1,10 @@
 #version 460 core
 
-uniform vec3 lightPosition; 
-uniform vec3 viewPosition;
+uniform vec3 lightPosition;
 uniform vec3 La;
 uniform vec3 Ld;
-uniform vec3 Ls;
 uniform vec3 Ka;
 uniform vec3 Kd;
-uniform vec3 Ks;
 uniform uint shininess;
 uniform float constantAttenuation;
 uniform float linearAttenuation;
@@ -31,18 +28,12 @@ void main()
   float diff = max(dot(normalizedNormal, lightDir), 0.0);
   vec3 diffuse = Kd * Ld * diff;
 
-  // Specular
-  vec3 viewDir = normalize(viewPosition - fragPosition);
-  vec3 reflectDir = reflect(-lightDir, normalizedNormal);  
-  float spec = pow(max(dot(viewDir, reflectDir), 0.0), shininess);
-  vec3 specular = Ks * Ls * spec;
-
   // Attenuation
   float distToLight = length(toLight);
   float attenuation = constantAttenuation +
                       linearAttenuation * distToLight +
                       quadraticAttenuation * distToLight * distToLight;
     
-  vec3 result = (ambient + ((diffuse + specular) / attenuation)) * vec3(1.0f, 1.0f, 1.0f);
+  vec3 result = (ambient + (diffuse / attenuation)) * vec3(1.0f, 1.0f, 1.0f);
   fragColor = vec4(result, 1.0);
 }

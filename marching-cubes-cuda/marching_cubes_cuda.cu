@@ -299,11 +299,9 @@ int main()
 
   glUniform3f(glGetUniformLocation(shaderProgram, "La"), 1.0f, 1.0f, 1.0f);
   glUniform3f(glGetUniformLocation(shaderProgram, "Ld"), 1.0f, 1.0f, 1.0f);
-  glUniform3f(glGetUniformLocation(shaderProgram, "Ls"), 1.0f, 1.0f, 1.0f);
 
   glUniform3f(glGetUniformLocation(shaderProgram, "Ka"), 0.2f, 0.2f, 0.2f);
   glUniform3f(glGetUniformLocation(shaderProgram, "Kd"), 0.9f, 0.9f, 0.9f);
-  glUniform3f(glGetUniformLocation(shaderProgram, "Ks"), 1.0f, 1.0f, 1.0f);
 
   glUniform3f(glGetUniformLocation(shaderProgram, "lightPosition"), 2.0f, 0.0f, 0.0f);
   
