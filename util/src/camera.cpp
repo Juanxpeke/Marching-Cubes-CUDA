@@ -16,29 +16,29 @@ height(height)
 {  
 }
 
-void Camera::updateFromInputs()
+void Camera::updateFromInputs(float dt)
 {
   if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) {
     glm::vec3 front = glm::normalize(targetOffset);
-    position += speed * front;
+    position += dt * speed * front;
   }
   if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS) {
     glm::vec3 right = glm::normalize(glm::cross(targetOffset, up));
-    position -= speed * right;
+    position -= dt * speed * right;
   }
   if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS) {
     glm::vec3 front = glm::normalize(targetOffset);
-    position -= speed * front;
+    position -= dt * speed * front;
   }
   if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS) {
     glm::vec3 right = glm::normalize(glm::cross(targetOffset, up));
-    position += speed  * right;
+    position += dt * speed  * right;
 	}
 }
 
-void Camera::update()
+void Camera::update(float dt)
 {
-	updateFromInputs();
+	updateFromInputs(dt);
 
   view = glm::lookAt(position, position + targetOffset, up);
 	projection = glm::perspective(glm::radians(FOV), (float)(width / height), near, far);

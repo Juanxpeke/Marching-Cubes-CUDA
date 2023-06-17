@@ -3,11 +3,11 @@
 #include <fstream>
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
-#include<glm/glm.hpp>
-#include<glm/gtc/matrix_transform.hpp>
-#include<glm/gtc/type_ptr.hpp>
-#include<glm/gtx/rotate_vector.hpp>
-#include<glm/gtx/vector_angle.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+#include <glm/gtx/rotate_vector.hpp>
+#include <glm/gtx/vector_angle.hpp>
 
 // CUDA
 #include <cuda_runtime.h>
@@ -18,6 +18,7 @@
 
 // Util
 #include "camera.h"
+#include "performance_monitor.h"
 
 // Kernels
 extern "C" void launch_classifyVoxel(dim3 grid, dim3 threads, uint *voxelVerts,
@@ -54,8 +55,8 @@ uint totalVerts = 0;
 // Device data
 GLuint posVbo, normalVbo;
 GLint gl_Shader;
-struct cudaGraphicsResource *cuda_posvbo_resource,
-    *cuda_normalvbo_resource;  // handles OpenGL-CUDA exchange
+// CUDA-OpenGL interoperability
+struct cudaGraphicsResource *cuda_posvbo_resource, *cuda_normalvbo_resource;  
 
 float4 *d_pos = 0, *d_normal = 0;
 
@@ -77,6 +78,10 @@ float dIsoValue = 0.01f;
 glm::mat4 model = glm::mat4(1.0f);
 
 Camera* camera;
+PerformanceMonitor* performanceMonitor;
+
+float lastTime;
+float dt;
 
 ////////////////////////////////////////////////////////////////////////////////
 //! Create VBO
@@ -215,8 +220,12 @@ int main()
   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
   glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
+  int width = 1280;
+  int height = 720;
+  char title[256];
+
   // Creating a glfw window    
-  GLFWwindow* window = glfwCreateWindow(1280, 720, "CUDA Marching Cubes", NULL, NULL);
+  GLFWwindow* window = glfwCreateWindow(width, height, title, NULL, NULL);
 
   if (window == NULL)
   {
@@ -230,12 +239,18 @@ int main()
   glfwMakeContextCurrent(window);
 
   camera = new Camera(window, 1280, 720);
+  performanceMonitor = new PerformanceMonitor(glfwGetTime(), 1.0f);
 
   // Set mouse movement callback
   glfwSetCursorPosCallback(window, handleMouseMove);
 
   // Set mouse button callback
   glfwSetMouseButtonCallback(window, handleMouseClick);
+  
+#if DISABLE_FPS_CAPPING
+  // GLFW will swap buffers as soon as possible
+  glfwSwapInterval(0);
+#endif
 
   // Loading all OpenGL function pointers with glad
   if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
@@ -338,7 +353,12 @@ int main()
     // internally, it stores all input events in the controller
     glfwPollEvents();
 
-    camera->update();
+    performanceMonitor->update(glfwGetTime());
+
+    sprintf(title, "CUDA Marching Cubes [%.1f FPS]", performanceMonitor->getFPS());
+    glfwSetWindowTitle(window, title);
+
+    camera->update(performanceMonitor->dt);
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera->view));
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera->projection));
 	

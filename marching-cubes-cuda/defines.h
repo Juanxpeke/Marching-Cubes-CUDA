@@ -39,4 +39,7 @@ typedef unsigned char uchar;
 // memory size)
 #define NTHREADS 32
 
+// OpenGL
+#define DISABLE_FPS_CAPPING 0
+
 #endif

@@ -1,6 +1,8 @@
 add_library(util
   include/camera.h
-  src/camera.cpp)
+  include/performance_monitor.h
+  src/camera.cpp
+  src/performance_monitor.cpp)
 
 set_property(TARGET util PROPERTY CXX_STANDARD 20)
 

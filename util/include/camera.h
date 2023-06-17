@@ -26,12 +26,12 @@ public:
 	glm::mat4 projection = glm::mat4(1.0f);
 
 	// Movement
-	float speed = 0.1f;
+	float speed = 1.0f;
 	float sensitivity = 0.01f;
 
   Camera(GLFWwindow* window, int width, int height, glm::vec3 position, glm::vec3 target);
 	Camera(GLFWwindow* window, int width, int heigth);
-	void update();
+	void update(float dt);
 
 	// Input callbacks
 	void handleMouseMove(double xPos, double yPos);
@@ -51,5 +51,5 @@ private:
 	bool isLeftButtonClicked = false;
 	
 	// Update variables from keyboard inputs
-	void updateFromInputs();
+	void updateFromInputs(float dt);
 };
