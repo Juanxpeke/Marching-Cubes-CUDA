@@ -34,6 +34,12 @@ void Camera::updateFromInputs(float dt)
     glm::vec3 right = glm::normalize(glm::cross(targetOffset, up));
     position += dt * speed  * right;
 	}
+  if (glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS) {
+    position += dt * speed * up;
+  }
+  if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
+    position -= dt * speed * up;
+  }
 }
 
 void Camera::update(float dt)
