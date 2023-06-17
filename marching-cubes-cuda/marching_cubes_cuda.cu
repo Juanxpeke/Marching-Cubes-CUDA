@@ -19,6 +19,7 @@
 // Util
 #include "camera.h"
 #include "performance_monitor.h"
+#include "file_manager.h"
 
 // Kernels
 extern "C" void launch_classifyVoxel(dim3 grid, dim3 threads, uint *voxelVerts,
@@ -157,12 +158,12 @@ void computeIsosurface()
   }
 
   // Generate triangles, writing to vertex buffers
-  size_t num_bytes;
+  size_t numBytes;
   cudaGraphicsMapResources(1, &cudaPosVBOResource, 0);
-  cudaGraphicsResourceGetMappedPointer((void **)&dPos, &num_bytes, cudaPosVBOResource);
+  cudaGraphicsResourceGetMappedPointer((void **) &dPos, &numBytes, cudaPosVBOResource);
 
   cudaGraphicsMapResources(1, &cudaNormalVBOResource, 0);
-  cudaGraphicsResourceGetMappedPointer((void **)&dNormal, &num_bytes, cudaNormalVBOResource);
+  cudaGraphicsResourceGetMappedPointer((void **) &dNormal, &numBytes, cudaNormalVBOResource);
 
   dim3 grid2((int)ceil(numVoxels / (float)NTHREADS), 1, 1);
 
@@ -187,29 +188,6 @@ void handleMouseMove(GLFWwindow* window, double xPos, double yPos) {
 // Function to handle mouse button events
 void handleMouseClick(GLFWwindow* window, int button, int action, int mods) {
   camera->handleMouseClick(button, action, mods);
-}
-
-std::string getFileContent(const char* filename)
-{
-  std::ifstream file(filename);
-
-  if (!file) {
-    std::cout << "Error reading the file " << filename;
-    exit(0);
-  }
-
-  if (file.is_open())
-  {
-    std::string content((std::istreambuf_iterator<char>(file)),
-                        (std::istreambuf_iterator<char>()));
-
-    file.close();
-
-    return content;
-  } else {
-    std::cout << "Failed to open the file " << filename << std::endl;
-    exit(1);
-  }
 }
 
 int main()

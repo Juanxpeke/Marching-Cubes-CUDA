@@ -1,6 +1,7 @@
 add_library(util
   include/camera.h
   include/performance_monitor.h
+  include/file_manager.h
   src/camera.cpp
   src/performance_monitor.cpp)
 
