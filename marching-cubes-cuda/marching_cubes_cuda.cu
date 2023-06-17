@@ -76,8 +76,6 @@ float isoValue = 0.0f;
 float dIsoValue = 0.01f;
 
 // Rendering variables
-glm::mat4 model = glm::mat4(1.0f);
-
 Camera* camera;
 PerformanceMonitor* performanceMonitor;
 
@@ -289,11 +287,6 @@ int main()
 	glEnableVertexAttribArray(glGetAttribLocation(shaderProgram, "normal"));
 
   glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-  glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
-	model = glm::translate(model, position);
-
-	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
 
   glUniform3f(glGetUniformLocation(shaderProgram, "La"), 1.0f, 1.0f, 1.0f);
   glUniform3f(glGetUniformLocation(shaderProgram, "Ld"), 1.0f, 1.0f, 1.0f);
