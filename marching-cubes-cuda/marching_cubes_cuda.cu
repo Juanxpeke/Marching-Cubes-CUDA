@@ -33,8 +33,8 @@ extern "C" void launch_generateTriangles(
     uint3 gridSizeShift, uint3 gridSizeMask, float3 voxelSize, float isoValue,
     uint maxVerts, float xpos, float zpos);
 
-extern "C" void allocateTextures(uint **d_edgeTable, uint **d_triTable,
-                                 uint **d_numVertsTable);
+extern "C" void allocateTextures(uint **dEdgeTable, uint **dTriTable,
+                                 uint **dNumVertsTable);
 
 extern "C" void destroyAllTextureObjects();
 
@@ -54,22 +54,22 @@ uint totalVerts = 0;
 
 // Device data
 GLuint posVbo, normalVbo;
-GLint gl_Shader;
+
 // CUDA-OpenGL interoperability
-struct cudaGraphicsResource *cuda_posvbo_resource, *cuda_normalvbo_resource;  
+struct cudaGraphicsResource *cudaPosVBOResource, *cudaNormalVBOResource;  
 
-float4 *d_pos = 0, *d_normal = 0;
+float4 *dPos = 0, *dNormal = 0;
 
-uchar *d_volume = 0;
-uint *d_voxelVerts = 0;
-uint *d_voxelVertsScan = 0;
-uint *d_voxelOccupied = 0;
-uint *d_voxelOccupiedScan = 0;
+uchar *dVolume = 0;
+uint *dVoxelVerts = 0;
+uint *dVoxelVertsScan = 0;
+uint *dVoxelOccupied = 0;
+uint *dVoxelOccupiedScan = 0;
 
-// tables
-uint *d_numVertsTable = 0;
-uint *d_edgeTable = 0;
-uint *d_triTable = 0;
+// Tables
+uint *dNumVertsTable = 0;
+uint *dEdgeTable = 0;
+uint *dTriTable = 0;
 
 float isoValue = 0.0f;
 float dIsoValue = 0.01f;
@@ -109,20 +109,20 @@ void initCuda()
 
   // Create VBOs
   createVBO(&posVbo, maxVerts * sizeof(float) * 4);
-  cudaGraphicsGLRegisterBuffer(&cuda_posvbo_resource, posVbo, cudaGraphicsMapFlagsWriteDiscard);
+  cudaGraphicsGLRegisterBuffer(&cudaPosVBOResource, posVbo, cudaGraphicsMapFlagsWriteDiscard);
 
   createVBO(&normalVbo, maxVerts * sizeof(float) * 4);
-  cudaGraphicsGLRegisterBuffer(&cuda_normalvbo_resource, normalVbo, cudaGraphicsMapFlagsWriteDiscard);
+  cudaGraphicsGLRegisterBuffer(&cudaNormalVBOResource, normalVbo, cudaGraphicsMapFlagsWriteDiscard);
 
   // Allocate textures
-  allocateTextures(&d_edgeTable, &d_triTable, &d_numVertsTable);
+  allocateTextures(&dEdgeTable, &dTriTable, &dNumVertsTable);
 
   // Allocate device memory
   unsigned int memSize = sizeof(uint) * numVoxels;
-  cudaMalloc((void **)&d_voxelVerts, memSize);
-  cudaMalloc((void **)&d_voxelVertsScan, memSize);
-  cudaMalloc((void **)&d_voxelOccupied, memSize);
-  cudaMalloc((void **)&d_voxelOccupiedScan, memSize);
+  cudaMalloc((void **)&dVoxelVerts, memSize);
+  cudaMalloc((void **)&dVoxelVertsScan, memSize);
+  cudaMalloc((void **)&dVoxelOccupied, memSize);
+  cudaMalloc((void **)&dVoxelOccupiedScan, memSize);
 }
 
 void computeIsosurface()
@@ -137,32 +137,32 @@ void computeIsosurface()
   }
 
   // calculate number of vertices need per voxel
-  launch_classifyVoxel(grid, threads, d_voxelVerts, d_voxelOccupied, d_volume,
+  launch_classifyVoxel(grid, threads, dVoxelVerts, dVoxelOccupied, dVolume,
                         gridSize, gridSizeShift, gridSizeMask, numVoxels,
                         voxelSize, isoValue);
 
   // scan voxel vertex count array
-  ThrustScanWrapper(d_voxelVertsScan, d_voxelVerts, numVoxels);
+  ThrustScanWrapper(dVoxelVertsScan, dVoxelVerts, numVoxels);
 
   // readback total number of vertices
   {
     uint lastElement, lastScanElement;
     cudaMemcpy((void *)&lastElement,
-                                (void *)(d_voxelVerts + numVoxels - 1),
+                                (void *)(dVoxelVerts + numVoxels - 1),
                                 sizeof(uint), cudaMemcpyDeviceToHost);
     cudaMemcpy((void *)&lastScanElement,
-                                (void *)(d_voxelVertsScan + numVoxels - 1),
+                                (void *)(dVoxelVertsScan + numVoxels - 1),
                                 sizeof(uint), cudaMemcpyDeviceToHost);
     totalVerts = lastElement + lastScanElement;
   }
 
   // Generate triangles, writing to vertex buffers
   size_t num_bytes;
-  cudaGraphicsMapResources(1, &cuda_posvbo_resource, 0);
-  cudaGraphicsResourceGetMappedPointer((void **)&d_pos, &num_bytes, cuda_posvbo_resource);
+  cudaGraphicsMapResources(1, &cudaPosVBOResource, 0);
+  cudaGraphicsResourceGetMappedPointer((void **)&dPos, &num_bytes, cudaPosVBOResource);
 
-  cudaGraphicsMapResources(1, &cuda_normalvbo_resource, 0);
-  cudaGraphicsResourceGetMappedPointer((void **)&d_normal, &num_bytes, cuda_normalvbo_resource);
+  cudaGraphicsMapResources(1, &cudaNormalVBOResource, 0);
+  cudaGraphicsResourceGetMappedPointer((void **)&dNormal, &num_bytes, cudaNormalVBOResource);
 
   dim3 grid2((int)ceil(numVoxels / (float)NTHREADS), 1, 1);
 
@@ -171,12 +171,12 @@ void computeIsosurface()
     grid2.y *= 2;
   }
 
-  launch_generateTriangles(grid2, NTHREADS, d_pos, d_normal,
-                            d_voxelVertsScan, gridSize, gridSizeShift,
+  launch_generateTriangles(grid2, NTHREADS, dPos, dNormal,
+                            dVoxelVertsScan, gridSize, gridSizeShift,
                             gridSizeMask, voxelSize, isoValue, maxVerts, 0.0f, 0.0f);
 
-  cudaGraphicsUnmapResources(1, &cuda_normalvbo_resource, 0);
-  cudaGraphicsUnmapResources(1, &cuda_posvbo_resource, 0);
+  cudaGraphicsUnmapResources(1, &cudaNormalVBOResource, 0);
+  cudaGraphicsUnmapResources(1, &cudaPosVBOResource, 0);
 }
 
 // Function to handle mouse movement
@@ -232,8 +232,6 @@ int main()
     std::cout << "Failed to create GLFW window" << std::endl;
     glfwTerminate();
     exit(1);
-  } else {
-    std::cout << "GLFW window created" << std::endl;
   }
 
   glfwMakeContextCurrent(window);
@@ -241,10 +239,8 @@ int main()
   camera = new Camera(window, 1280, 720);
   performanceMonitor = new PerformanceMonitor(glfwGetTime(), 1.0f);
 
-  // Set mouse movement callback
+  // Set GLFW callbacks
   glfwSetCursorPosCallback(window, handleMouseMove);
-
-  // Set mouse button callback
   glfwSetMouseButtonCallback(window, handleMouseClick);
   
 #if DISABLE_FPS_CAPPING
@@ -253,12 +249,10 @@ int main()
 #endif
 
   // Loading all OpenGL function pointers with glad
-  if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+  if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress))
   {
     std::cout << "Failed to initialize GLAD" << std::endl;
     exit(1);
-  } else {
-    std::cout << "GLAD initialized successfully" << std::endl;
   }
 
   // Shaders
@@ -340,39 +334,33 @@ int main()
 	glClearColor(0.02f, 0.02f, 0.02f, 1.0f);
 	// Clean the back buffer and assing the new color to it
 	glClear(GL_COLOR_BUFFER_BIT);
-  // Enables the Depth Buffer
+  // Enables the depth Buffer
 	glEnable(GL_DEPTH_TEST);
 	// Swap the back buffer with the front buffer
 	glfwSwapBuffers(window);
 
-  std::cout << "Opening GLFW window" << std::endl;
-
   while (!glfwWindowShouldClose(window))
   {
     // Using GLFW to check and process input events
-    // internally, it stores all input events in the controller
     glfwPollEvents();
 
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
     performanceMonitor->update(glfwGetTime());
+    camera->update(performanceMonitor->dt);
 
     sprintf(title, "CUDA Marching Cubes [%.1f FPS]", performanceMonitor->getFPS());
     glfwSetWindowTitle(window, title);
 
-    camera->update(performanceMonitor->dt);
+    computeIsosurface();
+
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera->view));
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera->projection));
-	
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    // Computes the isosurface
-    computeIsosurface();
 
     glDrawArrays(GL_TRIANGLES, 0, totalVerts);
 
 		glfwSwapBuffers(window);
   }
-  
-  std::cout << "GLFW window closed" << std::endl;
 
   return 0;
 }

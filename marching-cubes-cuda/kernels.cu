@@ -21,21 +21,21 @@
 cudaTextureObject_t triTex;
 cudaTextureObject_t numVertsTex;
 
-extern "C" void allocateTextures(uint **d_edgeTable, uint **d_triTable, uint **d_numVertsTable)
+extern "C" void allocateTextures(uint **dEdgeTable, uint **dTriTable, uint **dNumVertsTable)
 {
-  cudaMalloc((void **)d_edgeTable, 256 * sizeof(uint));
-  cudaMemcpy((void *)*d_edgeTable, (void *)edgeTable, 256 * sizeof(uint), cudaMemcpyHostToDevice);
+  cudaMalloc((void **)dEdgeTable, 256 * sizeof(uint));
+  cudaMemcpy((void *)*dEdgeTable, (void *)edgeTable, 256 * sizeof(uint), cudaMemcpyHostToDevice);
 
   cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindUnsigned);
 
-  cudaMalloc((void **)d_triTable, 256 * 16 * sizeof(uint));
-  cudaMemcpy((void *)*d_triTable, (void *)triTable, 256 * 16 * sizeof(uint), cudaMemcpyHostToDevice);
+  cudaMalloc((void **)dTriTable, 256 * 16 * sizeof(uint));
+  cudaMemcpy((void *)*dTriTable, (void *)triTable, 256 * 16 * sizeof(uint), cudaMemcpyHostToDevice);
 
   cudaResourceDesc texRes;
   memset(&texRes, 0, sizeof(cudaResourceDesc));
 
   texRes.resType = cudaResourceTypeLinear;
-  texRes.res.linear.devPtr = *d_triTable;
+  texRes.res.linear.devPtr = *dTriTable;
   texRes.res.linear.sizeInBytes = 256 * 16 * sizeof(uint);
   texRes.res.linear.desc = channelDesc;
 
@@ -49,13 +49,13 @@ extern "C" void allocateTextures(uint **d_edgeTable, uint **d_triTable, uint **d
 
   cudaCreateTextureObject(&triTex, &texRes, &texDescr, NULL);
 
-  cudaMalloc((void **)d_numVertsTable, 256 * sizeof(uint));
-  cudaMemcpy((void *)*d_numVertsTable, (void *)numVertsTable, 256 * sizeof(uint), cudaMemcpyHostToDevice);
+  cudaMalloc((void **)dNumVertsTable, 256 * sizeof(uint));
+  cudaMemcpy((void *)*dNumVertsTable, (void *)numVertsTable, 256 * sizeof(uint), cudaMemcpyHostToDevice);
 
   memset(&texRes, 0, sizeof(cudaResourceDesc));
 
   texRes.resType = cudaResourceTypeLinear;
-  texRes.res.linear.devPtr = *d_numVertsTable;
+  texRes.res.linear.devPtr = *dNumVertsTable;
   texRes.res.linear.sizeInBytes = 256 * sizeof(uint);
   texRes.res.linear.desc = channelDesc;
 
