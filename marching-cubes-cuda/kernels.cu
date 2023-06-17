@@ -75,7 +75,8 @@ extern "C" void destroyAllTextureObjects() {
 }
 
 // an interesting field function
-__device__ float tangle(float x, float y, float z) {
+__device__ float tangle(float x, float y, float z)
+{
   x *= 3.0f;
   y *= 3.0f;
   z *= 3.0f;
@@ -83,23 +84,31 @@ __device__ float tangle(float x, float y, float z) {
           z * z * z * z - 5.0f * z * z + 11.8f) * 0.2f + 0.5f;
 }
 
+__device__ float density(float x, float y, float z)
+{
+  float noise = (sin(x * 28.0f)  + cos(z * 28.0f)) * 0.036f;
+  return (y + noise);
+}
+
 // evaluate field function at point
-__device__ float fieldFunc(float3 p) { return tangle(p.x, p.y, p.z); }
+__device__ float fieldFunc(float3 p) { return density(p.x, p.y, p.z); }
 
 // evaluate field function at a point
 // returns value and gradient in float4
-__device__ float4 fieldFunc4(float3 p) {
-  float v = tangle(p.x, p.y, p.z);
+__device__ float4 fieldFunc4(float3 p)
+{
+  float v = density(p.x, p.y, p.z);
   const float d = 0.001f;
-  float dx = tangle(p.x + d, p.y, p.z) - v;
-  float dy = tangle(p.x, p.y + d, p.z) - v;
-  float dz = tangle(p.x, p.y, p.z + d) - v;
+  float dx = density(p.x + d, p.y, p.z) - v;
+  float dy = density(p.x, p.y + d, p.z) - v;
+  float dz = density(p.x, p.y, p.z + d) - v;
   return make_float4(dx, dy, dz, v);
 }
 
 // compute position in 3d grid from 1d index
 // only works for power of 2 sizes
-__device__ uint3 calcGridPos(uint i, uint3 gridSizeShift, uint3 gridSizeMask) {
+__device__ uint3 calcGridPos(uint i, uint3 gridSizeShift, uint3 gridSizeMask)
+{
   uint3 gridPos;
   gridPos.x = i & gridSizeMask.x;
   gridPos.y = (i >> gridSizeShift.y) & gridSizeMask.y;
@@ -195,7 +204,7 @@ __global__ void generateTriangles(
     float4 *pos, float4 *norm, uint *numVertsScanned,
     uint3 gridSize, uint3 gridSizeShift, uint3 gridSizeMask, float3 voxelSize,
     float isoValue, uint maxVerts,
-    cudaTextureObject_t triTex, cudaTextureObject_t numVertsTex)
+    cudaTextureObject_t triTex, cudaTextureObject_t numVertsTex, float xpos, float zpos)
 {
   uint blockId = __mul24(blockIdx.y, gridDim.x) + blockIdx.x;
   uint i = __mul24(blockId, blockDim.x) + threadIdx.x;
@@ -330,7 +339,8 @@ __global__ void generateTriangles(
 
     if (index < maxVerts) {
 #if USE_SHARED
-      pos[index] = make_float4(vertlist[(edge * NTHREADS) + threadIdx.x], 1.0f);
+      float3 vd = vertlist[(edge * NTHREADS) + threadIdx.x] + make_float3(xpos, 0.0f, zpos);
+      pos[index] = make_float4(vd, 1.0f);
       norm[index] = make_float4(normlist[(edge * NTHREADS) + threadIdx.x], 0.0f);
 #else
       pos[index] = make_float4(vertlist[edge], 1.0f);
@@ -344,12 +354,12 @@ extern "C" void launch_generateTriangles(
     dim3 grid, dim3 threads, float4 *pos, float4 *norm,
     uint *numVertsScanned, uint3 gridSize,
     uint3 gridSizeShift, uint3 gridSizeMask, float3 voxelSize, float isoValue,
-    uint maxVerts)
+    uint maxVerts, float xpos, float zpos)
 {
   generateTriangles<<<grid, NTHREADS>>>(
       pos, norm, numVertsScanned, gridSize, gridSizeShift,
       gridSizeMask, voxelSize, isoValue, maxVerts, triTex,
-      numVertsTex);
+      numVertsTex, xpos, zpos);
 }
 
 // calculate triangle normal

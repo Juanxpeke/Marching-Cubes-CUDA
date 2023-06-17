@@ -16,8 +16,10 @@
 
 #include "defines.h"
 
-// Kernels
+// Util
+#include "camera.h"
 
+// Kernels
 extern "C" void launch_classifyVoxel(dim3 grid, dim3 threads, uint *voxelVerts,
                                      uint *voxelOccupied, uchar *volume,
                                      uint3 gridSize, uint3 gridSizeShift,
@@ -28,7 +30,7 @@ extern "C" void launch_generateTriangles(
     dim3 grid, dim3 threads, float4 *pos, float4 *norm,
     uint *numVertsScanned, uint3 gridSize,
     uint3 gridSizeShift, uint3 gridSizeMask, float3 voxelSize, float isoValue,
-    uint maxVerts);
+    uint maxVerts, float xpos, float zpos);
 
 extern "C" void allocateTextures(uint **d_edgeTable, uint **d_triTable,
                                  uint **d_numVertsTable);
@@ -68,13 +70,13 @@ uint *d_numVertsTable = 0;
 uint *d_edgeTable = 0;
 uint *d_triTable = 0;
 
-float isoValue = 0.2f;
+float isoValue = 0.0f;
 float dIsoValue = 0.01f;
 
 // Rendering variables
 glm::mat4 model = glm::mat4(1.0f);
-glm::mat4 view = glm::mat4(1.0f);
-glm::mat4 projection = glm::mat4(1.0f);
+
+Camera* camera;
 
 ////////////////////////////////////////////////////////////////////////////////
 //! Create VBO
@@ -166,10 +168,20 @@ void computeIsosurface()
 
   launch_generateTriangles(grid2, NTHREADS, d_pos, d_normal,
                             d_voxelVertsScan, gridSize, gridSizeShift,
-                            gridSizeMask, voxelSize, isoValue, maxVerts);
+                            gridSizeMask, voxelSize, isoValue, maxVerts, 0.0f, 0.0f);
 
   cudaGraphicsUnmapResources(1, &cuda_normalvbo_resource, 0);
   cudaGraphicsUnmapResources(1, &cuda_posvbo_resource, 0);
+}
+
+// Function to handle mouse movement
+void handleMouseMove(GLFWwindow* window, double xPos, double yPos) {
+  camera->handleMouseMove(xPos, yPos);
+}
+
+// Function to handle mouse button events
+void handleMouseClick(GLFWwindow* window, int button, int action, int mods) {
+  camera->handleMouseClick(button, action, mods);
 }
 
 std::string getFileContent(const char* filename)
@@ -204,9 +216,9 @@ int main()
   glfwWindowHint(GLFW_RESIZABLE, GL_FALSE);
 
   // Creating a glfw window    
-  GLFWwindow* glfwWindow = glfwCreateWindow(1280, 720, "CUDA Marching Cubes", NULL, NULL);
+  GLFWwindow* window = glfwCreateWindow(1280, 720, "CUDA Marching Cubes", NULL, NULL);
 
-  if (glfwWindow == NULL)
+  if (window == NULL)
   {
     std::cout << "Failed to create GLFW window" << std::endl;
     glfwTerminate();
@@ -215,7 +227,15 @@ int main()
     std::cout << "GLFW window created" << std::endl;
   }
 
-  glfwMakeContextCurrent(glfwWindow);
+  glfwMakeContextCurrent(window);
+
+  camera = new Camera(window, 1280, 720);
+
+  // Set mouse movement callback
+  glfwSetCursorPosCallback(window, handleMouseMove);
+
+  // Set mouse button callback
+  glfwSetMouseButtonCallback(window, handleMouseClick);
 
   // Loading all OpenGL function pointers with glad
   if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
@@ -286,16 +306,7 @@ int main()
   glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f);
 	model = glm::translate(model, position);
 
-  glm::vec3 viewPosition = glm::vec3(0.0f, 1.0f, 2.0f);
-  glm::vec3 viewTarget = glm::vec3(0.0f, 0.0f, 0.0f);
-  glm::vec3 viewUp = glm::vec3(0.0f, 1.0f, 0.0f);
-	view = glm::lookAt(viewPosition, viewTarget, viewUp);
-
-	projection = glm::perspective(glm::radians(90.0f), (float)(1280 / 720), 0.0001f, 100.0f);
-
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "model"), 1, GL_FALSE, glm::value_ptr(model));
-  glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(view));
-  glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(projection));
 
   glUniform3f(glGetUniformLocation(shaderProgram, "La"), 1.0f, 1.0f, 1.0f);
   glUniform3f(glGetUniformLocation(shaderProgram, "Ld"), 1.0f, 1.0f, 1.0f);
@@ -317,15 +328,19 @@ int main()
   // Enables the Depth Buffer
 	glEnable(GL_DEPTH_TEST);
 	// Swap the back buffer with the front buffer
-	glfwSwapBuffers(glfwWindow);
+	glfwSwapBuffers(window);
 
   std::cout << "Opening GLFW window" << std::endl;
 
-  while (!glfwWindowShouldClose(glfwWindow))
+  while (!glfwWindowShouldClose(window))
   {
     // Using GLFW to check and process input events
     // internally, it stores all input events in the controller
     glfwPollEvents();
+
+    camera->update();
+    glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera->view));
+    glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera->projection));
 	
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -334,14 +349,7 @@ int main()
 
     glDrawArrays(GL_TRIANGLES, 0, totalVerts);
 
-		glfwSwapBuffers(glfwWindow);
-
-    // Update animation
-    if (isoValue > 1 || isoValue < -1) {
-      dIsoValue *= -1;
-    }
-
-    isoValue += dIsoValue;
+		glfwSwapBuffers(window);
   }
   
   std::cout << "GLFW window closed" << std::endl;

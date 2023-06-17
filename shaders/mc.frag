@@ -34,6 +34,6 @@ void main()
                       linearAttenuation * distToLight +
                       quadraticAttenuation * distToLight * distToLight;
     
-  vec3 result = (ambient + (diffuse / attenuation)) * vec3(1.0f, 1.0f, 1.0f);
+  vec3 result = (ambient + (diffuse / attenuation)) * vec3(0.15f, 0.4f, 0.0f);
   fragColor = vec4(result, 1.0);
 }
