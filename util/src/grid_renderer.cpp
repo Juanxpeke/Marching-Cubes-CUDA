@@ -1,9 +1,10 @@
 #include "grid_renderer.h"
 
-GridRenderer::GridRenderer(int cells, float size):
+GridRenderer::GridRenderer(int cells, float size, float renderDistance):
 cells(cells),
 size(size),
-numVertices((cells + 1) * (cells + 1) * 6)
+numVertices((cells + 1) * (cells + 1) * 6),
+renderDistance(renderDistance)
 {
   // Enable blending
   glEnable(GL_BLEND);
@@ -115,6 +116,8 @@ void GridRenderer::initBuffers()
 
 void GridRenderer::render()
 {
+  glUniform1f(glGetUniformLocation(shaderProgram, "renderDistance"), renderDistance);
+
   glBindVertexArray(VAO);
   glDrawArrays(GL_LINES, 0, numVertices);
   glBindVertexArray(0);

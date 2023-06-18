@@ -13,7 +13,9 @@ class GridRenderer
 public:
   GLuint shaderProgram;
 
-  GridRenderer(int cells, float size);
+  float renderDistance;
+
+  GridRenderer(int cells, float size, float renderDistance);
   void render();
   ~GridRenderer();
 

@@ -51,14 +51,14 @@ uint3 gridSizeShift;
 uint3 gridSize;
 uint3 gridSizeMask;
 
-float worldSize = 12.0f;
+float worldSize = 2.5f;
 
 float3 voxelSize;
 uint numVoxels = 0;
 uint maxVerts = 0;
 uint totalVerts = 0;
 
-float isoValue = 6.0f;
+float isoValue = 1.0f;
 
 // OpenGL
 GLuint posVbo, normalVbo;
@@ -306,7 +306,7 @@ int main()
 
   glBindVertexArray(0);
 
-  GridRenderer gridRenderer(gridSize.x, worldSize);
+  GridRenderer gridRenderer(gridSize.x, worldSize, 0.6f);
 
 	// Specify the color of the background
 	glClearColor(0.02f, 0.02f, 0.02f, 1.0f);
@@ -341,6 +341,7 @@ int main()
     glDrawArrays(GL_TRIANGLES, 0, totalVerts);
 
     glUseProgram(gridRenderer.shaderProgram);
+    glUniform3fv(glGetUniformLocation(gridRenderer.shaderProgram, "viewPosition"), 1, glm::value_ptr(camera->position));
     glUniformMatrix4fv(glGetUniformLocation(gridRenderer.shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera->view));
     glUniformMatrix4fv(glGetUniformLocation(gridRenderer.shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera->projection));
     gridRenderer.render();
