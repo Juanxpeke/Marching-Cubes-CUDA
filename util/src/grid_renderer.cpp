@@ -1,8 +1,8 @@
 #include "grid_renderer.h"
 
-GridRenderer::GridRenderer(int cells, float gridSize):
+GridRenderer::GridRenderer(int cells, float size):
 cells(cells),
-gridSize(gridSize),
+size(size),
 numVertices((cells + 1) * (cells + 1) * 6)
 {
   // Enable blending
@@ -48,8 +48,8 @@ void GridRenderer::initBuffers()
 {
   GLfloat* vertices = new GLfloat[numVertices * 3];
 
-  float gridHalf = gridSize / 2.0f;
-  float voxelSize = gridSize / cells;
+  float halfSize = size / 2.0f;
+  float cellSize = size / cells;
   int idx = 0;
 
   // X axis parallel lines
@@ -57,12 +57,12 @@ void GridRenderer::initBuffers()
   {
     for(int j = 0; j < cells + 1; j++)
     {
-      vertices[idx + 0] = -gridHalf; // X left
-      vertices[idx + 1] = -gridHalf + i * voxelSize; // Y
-      vertices[idx + 2] = -gridHalf + j * voxelSize; // Z
-      vertices[idx + 3] = gridHalf; // X right
-      vertices[idx + 4] = -gridHalf + i * voxelSize; // Y
-      vertices[idx + 5] = -gridHalf + j * voxelSize; // Z
+      vertices[idx + 0] = -halfSize; // X left
+      vertices[idx + 1] = -halfSize + i * cellSize; // Y
+      vertices[idx + 2] = -halfSize + j * cellSize; // Z
+      vertices[idx + 3] = halfSize; // X right
+      vertices[idx + 4] = -halfSize + i * cellSize; // Y
+      vertices[idx + 5] = -halfSize + j * cellSize; // Z
       idx += 6;
     }
   }
@@ -71,12 +71,12 @@ void GridRenderer::initBuffers()
   {
     for(int j = 0; j < cells + 1; j++)
     {
-      vertices[idx + 0] = -gridHalf + i * voxelSize; // X
-      vertices[idx + 1] = -gridHalf; // Y bottom
-      vertices[idx + 2] = -gridHalf + j * voxelSize; // Z
-      vertices[idx + 3] = -gridHalf + i * voxelSize; // X
-      vertices[idx + 4] = gridHalf; // Y top
-      vertices[idx + 5] = -gridHalf + j * voxelSize; // Z
+      vertices[idx + 0] = -halfSize + i * cellSize; // X
+      vertices[idx + 1] = -halfSize; // Y bottom
+      vertices[idx + 2] = -halfSize + j * cellSize; // Z
+      vertices[idx + 3] = -halfSize + i * cellSize; // X
+      vertices[idx + 4] = halfSize; // Y top
+      vertices[idx + 5] = -halfSize + j * cellSize; // Z
       idx += 6;
     }
   }
@@ -85,12 +85,12 @@ void GridRenderer::initBuffers()
   {
     for(int j = 0; j < cells + 1; j++)
     {
-      vertices[idx + 0] = -gridHalf + j * voxelSize; // X
-      vertices[idx + 1] = -gridHalf + i * voxelSize; // Y
-      vertices[idx + 2] = -gridHalf; // Z back
-      vertices[idx + 3] = -gridHalf + j * voxelSize; // X
-      vertices[idx + 4] = -gridHalf + i * voxelSize; // Y
-      vertices[idx + 5] = gridHalf; // Z front
+      vertices[idx + 0] = -halfSize + j * cellSize; // X
+      vertices[idx + 1] = -halfSize + i * cellSize; // Y
+      vertices[idx + 2] = -halfSize; // Z back
+      vertices[idx + 3] = -halfSize + j * cellSize; // X
+      vertices[idx + 4] = -halfSize + i * cellSize; // Y
+      vertices[idx + 5] = halfSize; // Z front
       idx += 6;
     }
   }

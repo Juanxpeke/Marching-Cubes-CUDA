@@ -13,13 +13,13 @@ class GridRenderer
 public:
   GLuint shaderProgram;
 
-  GridRenderer(int cells, float gridSize);
+  GridRenderer(int cells, float size);
   void render();
   ~GridRenderer();
 
 private:
   int cells;
-  float gridSize;
+  float size;
 
   GLuint VAO;
   GLuint VBO;
