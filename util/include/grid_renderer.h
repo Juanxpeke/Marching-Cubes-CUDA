@@ -13,9 +13,7 @@ class GridRenderer
 public:
   GLuint shaderProgram;
 
-  float renderDistance;
-
-  GridRenderer(int cells, float size, float renderDistance);
+  GridRenderer(int cells, float size);
   void render();
   ~GridRenderer();
 
@@ -26,6 +24,7 @@ private:
   GLuint VAO;
   GLuint VBO;
   int numVertices;
+  float renderDistance;
 
   void compileShaders();
   void initBuffers();

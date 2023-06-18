@@ -1,10 +1,10 @@
 #include "grid_renderer.h"
 
-GridRenderer::GridRenderer(int cells, float size, float renderDistance):
+GridRenderer::GridRenderer(int cells, float size):
 cells(cells),
 size(size),
 numVertices((cells + 1) * (cells + 1) * 6),
-renderDistance(renderDistance)
+renderDistance(3 * size / cells)
 {
   // Enable blending
   glEnable(GL_BLEND);

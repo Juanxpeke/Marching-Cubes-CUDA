@@ -25,13 +25,13 @@
 
 // Kernels
 extern "C" void launchClassifyVoxel(
-  dim3 grid, dim3 threads,
+  dim3 blocks, dim3 threads,
   uint *voxelVerts, uint *voxelOccupied,
   uint3 gridSize, uint3 gridSizeShift, uint3 gridSizeMask,
   uint numVoxels, float3 voxelSize, float isoValue);
 
 extern "C" void launchGenerateTriangles(
-  dim3 grid, dim3 threads,
+  dim3 blocks, dim3 threads,
   float4 *pos, float4 *norm,
   uint *numVertsScanned,
   uint3 gridSize, uint3 gridSizeShift, uint3 gridSizeMask,
@@ -46,7 +46,7 @@ extern "C" void ThrustScanWrapper(unsigned int *output, unsigned int *input,
                                   unsigned int numElements);
 
 // MC variables
-uint3 gridSizeLog2 = make_uint3(4, 4, 4);
+uint3 gridSizeLog2 = make_uint3(1, 1, 1);
 uint3 gridSizeShift;
 uint3 gridSize;
 uint3 gridSizeMask;
@@ -124,18 +124,18 @@ void initMarchingCubes()
 
 void computeIsosurface()
 {
-  int threads = 32;
-  dim3 grid(numVoxels / threads, 1, 1);
+  int threads = min(NTHREADS, numVoxels);
+  dim3 blocks(numVoxels / threads, 1, 1);
 
   // Get around maximum grid size of 65535 in each dimension
-  if (grid.x > 65535) {
-    grid.y = grid.x / 32768;
-    grid.x = 32768;
+  if (blocks.x > 65535) {
+    blocks.y = blocks.x / 32768;
+    blocks.x = 32768;
   }
 
   // Calculate number of vertices need per voxel
   launchClassifyVoxel(
-    grid, threads,
+    blocks, threads,
     dVoxelVerts, dVoxelOccupied,
     gridSize, gridSizeShift, gridSizeMask,
     numVoxels, voxelSize, isoValue);
@@ -146,13 +146,10 @@ void computeIsosurface()
   // Readback total number of vertices
   {
     uint lastElement, lastScanElement;
-    cudaMemcpy((void*) &lastElement,
-                                (void*) (dVoxelVerts + numVoxels - 1),
-                                sizeof(uint), cudaMemcpyDeviceToHost);
-    cudaMemcpy((void*) &lastScanElement,
-                                (void*) (dVoxelVertsScan + numVoxels - 1),
-                                sizeof(uint), cudaMemcpyDeviceToHost);
+    cudaMemcpy((void*) &lastElement, (void*) (dVoxelVerts + numVoxels - 1), sizeof(uint), cudaMemcpyDeviceToHost);
+    cudaMemcpy((void*) &lastScanElement, (void*) (dVoxelVertsScan + numVoxels - 1), sizeof(uint), cudaMemcpyDeviceToHost);
     totalVerts = lastElement + lastScanElement;
+    std::cout << totalVerts << std::endl;
   }
 
   // Generate triangles, writing to vertex buffers
@@ -306,7 +303,7 @@ int main()
 
   glBindVertexArray(0);
 
-  GridRenderer gridRenderer(gridSize.x, worldSize, 0.6f);
+  GridRenderer gridRenderer(gridSize.x, worldSize);
 
 	// Specify the color of the background
 	glClearColor(0.02f, 0.02f, 0.02f, 1.0f);
