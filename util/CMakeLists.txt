@@ -1,9 +1,11 @@
 add_library(util
   include/camera.h
   include/performance_monitor.h
+  include/grid_renderer.h
   include/file_manager.h
   src/camera.cpp
-  src/performance_monitor.cpp)
+  src/performance_monitor.cpp
+  src/grid_renderer.cpp)
 
 set_property(TARGET util PROPERTY CXX_STANDARD 20)
 

@@ -74,7 +74,6 @@ extern "C" void destroyAllTextureObjects() {
   cudaDestroyTextureObject(numVertsTex);
 }
 
-// an interesting field function
 __device__ float tangle(float x, float y, float z)
 {
   x *= 3.0f;
@@ -90,18 +89,23 @@ __device__ float density(float x, float y, float z)
   return (y + noise);
 }
 
+__device__ float sphere(float x, float y, float z)
+{
+  return sqrtf(x * x + y * y + z * z);
+}
+
 // evaluate field function at point
-__device__ float fieldFunc(float3 p) { return density(p.x, p.y, p.z); }
+__device__ float fieldFunc(float3 p) { return sphere(p.x, p.y, p.z); }
 
 // evaluate field function at a point
 // returns value and gradient in float4
 __device__ float4 fieldFunc4(float3 p)
 {
-  float v = density(p.x, p.y, p.z);
+  float v = sphere(p.x, p.y, p.z);
   const float d = 0.001f;
-  float dx = density(p.x + d, p.y, p.z) - v;
-  float dy = density(p.x, p.y + d, p.z) - v;
-  float dz = density(p.x, p.y, p.z + d) - v;
+  float dx = sphere(p.x + d, p.y, p.z) - v;
+  float dy = sphere(p.x, p.y + d, p.z) - v;
+  float dz = sphere(p.x, p.y, p.z + d) - v;
   return make_float4(dx, dy, dz, v);
 }
 
@@ -130,9 +134,9 @@ __global__ void classifyVoxel(uint *voxelVerts, uint *voxelOccupied,
   uint3 gridPos = calcGridPos(i, gridSizeShift, gridSizeMask);
 
   float3 p;
-  p.x = -1.0f + (gridPos.x * voxelSize.x);
-  p.y = -1.0f + (gridPos.y * voxelSize.y);
-  p.z = -1.0f + (gridPos.z * voxelSize.z);
+  p.x = -4.0f + (gridPos.x * voxelSize.x);
+  p.y = -4.0f + (gridPos.y * voxelSize.y);
+  p.z = -4.0f + (gridPos.z * voxelSize.z);
 
   float field[8];
   field[0] = fieldFunc(p);
@@ -215,9 +219,9 @@ __global__ void generateTriangles(
   uint3 gridPos = calcGridPos(voxel, gridSizeShift, gridSizeMask);
 
   float3 p;
-  p.x = -1.0f + (gridPos.x * voxelSize.x);
-  p.y = -1.0f + (gridPos.y * voxelSize.y);
-  p.z = -1.0f + (gridPos.z * voxelSize.z);
+  p.x = -4.0f + (gridPos.x * voxelSize.x);
+  p.y = -4.0f + (gridPos.y * voxelSize.y);
+  p.z = -4.0f + (gridPos.z * voxelSize.z);
 
   // calculate cell vertex positions
   float3 v[8];

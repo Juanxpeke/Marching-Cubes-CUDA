@@ -20,13 +20,13 @@ public:
 	// Projection variables
 	int width;
 	int height;
-	float FOV = 90.0f;
+	float FOV = 60.0f;
 	float near = 0.0001f;
 	float far = 100.0f;
 	glm::mat4 projection = glm::mat4(1.0f);
 
 	// Movement
-	float speed = 1.0f;
+	float speed = 2.0f;
 	float sensitivity = 0.01f;
 
   Camera(GLFWwindow* window, int width, int height, glm::vec3 position, glm::vec3 target);

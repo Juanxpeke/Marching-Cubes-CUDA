@@ -3,7 +3,7 @@
 #include <iostream>
 #include <fstream>
 
-std::string getFileContent(const char* filename)
+static std::string getFileContent(const char* filename)
 {
   std::ifstream file(filename);
 

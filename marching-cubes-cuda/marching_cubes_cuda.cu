@@ -14,12 +14,14 @@
 #include <cuda_gl_interop.h>
 #include <vector_types.h>
 
-#include "defines.h"
-
 // Util
 #include "camera.h"
 #include "performance_monitor.h"
 #include "file_manager.h"
+#include "grid_renderer.h"
+
+// Configuration macros
+#include "defines.h"
 
 // Kernels
 extern "C" void launch_classifyVoxel(dim3 grid, dim3 threads, uint *voxelVerts,
@@ -43,7 +45,7 @@ extern "C" void ThrustScanWrapper(unsigned int *output, unsigned int *input,
                                   unsigned int numElements);
 
 // MC variables
-uint3 gridSizeLog2 = make_uint3(5, 5, 5);
+uint3 gridSizeLog2 = make_uint3(2, 2, 2);
 uint3 gridSizeShift;
 uint3 gridSize;
 uint3 gridSizeMask;
@@ -72,7 +74,7 @@ uint *dNumVertsTable = 0;
 uint *dEdgeTable = 0;
 uint *dTriTable = 0;
 
-float isoValue = 0.0f;
+float isoValue = 5.0f;
 float dIsoValue = 0.01f;
 
 // Rendering variables
@@ -103,7 +105,7 @@ void initCuda()
   gridSizeShift = make_uint3(0, gridSizeLog2.x, gridSizeLog2.x + gridSizeLog2.y);
 
   numVoxels = gridSize.x * gridSize.y * gridSize.z;
-  voxelSize = make_float3(2.0f / gridSize.x, 2.0f / gridSize.y, 2.0f / gridSize.z);
+  voxelSize = make_float3(8.0f / gridSize.x, 8.0f / gridSize.y, 8.0f / gridSize.z);
   maxVerts = gridSize.x * gridSize.y * 100;
 
   // Create VBOs
@@ -126,7 +128,7 @@ void initCuda()
 
 void computeIsosurface()
 {
-  int threads = 128;
+  int threads = 32;
   dim3 grid(numVoxels / threads, 1, 1);
 
   // get around maximum grid size of 65535 in each dimension
@@ -294,12 +296,16 @@ int main()
   glUniform3f(glGetUniformLocation(shaderProgram, "Ka"), 0.2f, 0.2f, 0.2f);
   glUniform3f(glGetUniformLocation(shaderProgram, "Kd"), 0.9f, 0.9f, 0.9f);
 
-  glUniform3f(glGetUniformLocation(shaderProgram, "lightPosition"), 2.0f, 0.0f, 0.0f);
+  glUniform3f(glGetUniformLocation(shaderProgram, "lightPosition"), 4.0f, 4.0f, 4.0f);
   
   glUniform1ui(glGetUniformLocation(shaderProgram, "shininess"), 100);
   glUniform1f(glGetUniformLocation(shaderProgram, "constantAttenuation"), 0.001f);
-  glUniform1f(glGetUniformLocation(shaderProgram, "linearAttenuation"), 0.1f);
-  glUniform1f(glGetUniformLocation(shaderProgram, "quadraticAttenuation"), 0.01f);
+  glUniform1f(glGetUniformLocation(shaderProgram, "linearAttenuation"), 0.01f);
+  glUniform1f(glGetUniformLocation(shaderProgram, "quadraticAttenuation"), 0.0001f);
+
+  glBindVertexArray(0);
+
+  GridRenderer gridRenderer(gridSize.x, 8.0f);
 
 	// Specify the color of the background
 	glClearColor(0.02f, 0.02f, 0.02f, 1.0f);
@@ -323,12 +329,20 @@ int main()
     sprintf(title, "CUDA Marching Cubes [%.1f FPS]", performanceMonitor->getFPS());
     glfwSetWindowTitle(window, title);
 
+    glUseProgram(shaderProgram);
+    glBindVertexArray(VAO);
+
     computeIsosurface();
 
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera->view));
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera->projection));
 
     glDrawArrays(GL_TRIANGLES, 0, totalVerts);
+
+    glUseProgram(gridRenderer.shaderProgram);
+    glUniformMatrix4fv(glGetUniformLocation(gridRenderer.shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera->view));
+    glUniformMatrix4fv(glGetUniformLocation(gridRenderer.shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera->projection));
+    gridRenderer.render();
 
 		glfwSwapBuffers(window);
   }
