@@ -21,58 +21,9 @@
 cudaTextureObject_t triTex;
 cudaTextureObject_t numVertsTex;
 
-extern "C" void allocateTextures(uint **dEdgeTable, uint **dTriTable, uint **dNumVertsTable)
-{
-  cudaMalloc((void **)dEdgeTable, 256 * sizeof(uint));
-  cudaMemcpy((void *)*dEdgeTable, (void *)edgeTable, 256 * sizeof(uint), cudaMemcpyHostToDevice);
-
-  cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindUnsigned);
-
-  cudaMalloc((void **)dTriTable, 256 * 16 * sizeof(uint));
-  cudaMemcpy((void *)*dTriTable, (void *)triTable, 256 * 16 * sizeof(uint), cudaMemcpyHostToDevice);
-
-  cudaResourceDesc texRes;
-  memset(&texRes, 0, sizeof(cudaResourceDesc));
-
-  texRes.resType = cudaResourceTypeLinear;
-  texRes.res.linear.devPtr = *dTriTable;
-  texRes.res.linear.sizeInBytes = 256 * 16 * sizeof(uint);
-  texRes.res.linear.desc = channelDesc;
-
-  cudaTextureDesc texDescr;
-  memset(&texDescr, 0, sizeof(cudaTextureDesc));
-
-  texDescr.normalizedCoords = false;
-  texDescr.filterMode = cudaFilterModePoint;
-  texDescr.addressMode[0] = cudaAddressModeClamp;
-  texDescr.readMode = cudaReadModeElementType;
-
-  cudaCreateTextureObject(&triTex, &texRes, &texDescr, NULL);
-
-  cudaMalloc((void **)dNumVertsTable, 256 * sizeof(uint));
-  cudaMemcpy((void *)*dNumVertsTable, (void *)numVertsTable, 256 * sizeof(uint), cudaMemcpyHostToDevice);
-
-  memset(&texRes, 0, sizeof(cudaResourceDesc));
-
-  texRes.resType = cudaResourceTypeLinear;
-  texRes.res.linear.devPtr = *dNumVertsTable;
-  texRes.res.linear.sizeInBytes = 256 * sizeof(uint);
-  texRes.res.linear.desc = channelDesc;
-
-  memset(&texDescr, 0, sizeof(cudaTextureDesc));
-
-  texDescr.normalizedCoords = false;
-  texDescr.filterMode = cudaFilterModePoint;
-  texDescr.addressMode[0] = cudaAddressModeClamp;
-  texDescr.readMode = cudaReadModeElementType;
-
-  cudaCreateTextureObject(&numVertsTex, &texRes, &texDescr, NULL);
-}
-
-extern "C" void destroyAllTextureObjects() {
-  cudaDestroyTextureObject(triTex);
-  cudaDestroyTextureObject(numVertsTex);
-}
+// ===================================
+// ======== Density functions ========
+// ===================================
 
 __device__ float tangle(float x, float y, float z)
 {
@@ -83,7 +34,7 @@ __device__ float tangle(float x, float y, float z)
           z * z * z * z - 5.0f * z * z + 11.8f) * 0.2f + 0.5f;
 }
 
-__device__ float density(float x, float y, float z)
+__device__ float wave(float x, float y, float z)
 {
   float noise = (sin(x * 28.0f)  + cos(z * 28.0f)) * 0.036f;
   return (y + noise);
@@ -94,11 +45,14 @@ __device__ float sphere(float x, float y, float z)
   return sqrtf(x * x + y * y + z * z);
 }
 
-// evaluate field function at point
+// ======================
+// ======== Misc ========
+// ======================
+
+// Evaluate field function at point
 __device__ float fieldFunc(float3 p) { return sphere(p.x, p.y, p.z); }
 
-// evaluate field function at a point
-// returns value and gradient in float4
+// Evaluate field function at a point, returns value and gradient in float4
 __device__ float4 fieldFunc4(float3 p)
 {
   float v = sphere(p.x, p.y, p.z);
@@ -109,8 +63,7 @@ __device__ float4 fieldFunc4(float3 p)
   return make_float4(dx, dy, dz, v);
 }
 
-// compute position in 3d grid from 1d index
-// only works for power of 2 sizes
+// Compute position in 3D grid from 1d index, only works for power of 2 sizes
 __device__ uint3 calcGridPos(uint i, uint3 gridSizeShift, uint3 gridSizeMask)
 {
   uint3 gridPos;
@@ -120,13 +73,46 @@ __device__ uint3 calcGridPos(uint i, uint3 gridSizeShift, uint3 gridSizeMask)
   return gridPos;
 }
 
+// Calculate triangle normal
+// NOTE: It's faster to perform normalization in vertex shader rather than here
+__device__ float3 calcNormal(float3 *v0, float3 *v1, float3 *v2)
+{
+  float3 edge0 = *v1 - *v0;
+  float3 edge1 = *v2 - *v0;
+  return cross(edge0, edge1);
+}
+
+// Compute interpolated vertex along an edge
+__device__ float3 vertexInterp(float isolevel, float3 p0, float3 p1, float f0,
+                               float f1)
+{
+  float t = (isolevel - f0) / (f1 - f0);
+  return lerp(p0, p1, t);
+}
+
+// Compute interpolated vertex position and normal along an edge
+__device__ void vertexInterp2(float isolevel, float3 p0, float3 p1, float4 f0,
+                              float4 f1, float3 &p, float3 &n)
+{
+  float t = (isolevel - f0.w) / (f1.w - f0.w);
+  p = lerp(p0, p1, t);
+  n.x = lerp(f0.x, f1.x, t);
+  n.y = lerp(f0.y, f1.y, t);
+  n.z = lerp(f0.z, f1.z, t);
+  //    n = normalize(n);
+}
+
+// =========================
+// ======== Kernels ========
+// =========================
+
 // Classify voxel based on number of vertices it will generate
 // one thread per voxel
-__global__ void classifyVoxel(uint *voxelVerts, uint *voxelOccupied,
-                              uchar *volume, uint3 gridSize,
-                              uint3 gridSizeShift, uint3 gridSizeMask,
-                              uint numVoxels, float3 voxelSize, float isoValue,
-                              cudaTextureObject_t numVertsTex)
+__global__ void classifyVoxel(
+  uint *voxelVerts, uint *voxelOccupied, // Global data
+  uint3 gridSize, uint3 gridSizeShift, uint3 gridSizeMask, // Grid values
+  uint numVoxels, float3 voxelSize, float isoValue, // More values
+  cudaTextureObject_t numVertsTex) // CUDA texture
 {
   uint blockId = __mul24(blockIdx.y, gridDim.x) + blockIdx.x;
   uint i = __mul24(blockId, blockDim.x) + threadIdx.x;
@@ -134,9 +120,9 @@ __global__ void classifyVoxel(uint *voxelVerts, uint *voxelOccupied,
   uint3 gridPos = calcGridPos(i, gridSizeShift, gridSizeMask);
 
   float3 p;
-  p.x = -4.0f + (gridPos.x * voxelSize.x);
-  p.y = -4.0f + (gridPos.y * voxelSize.y);
-  p.z = -4.0f + (gridPos.z * voxelSize.z);
+  p.x = -0.5 * (gridSize.x * voxelSize.x) + (gridPos.x * voxelSize.x);
+  p.y = -0.5 * (gridSize.y * voxelSize.y) + (gridPos.y * voxelSize.y);
+  p.z = -0.5 * (gridSize.z * voxelSize.z) + (gridPos.z * voxelSize.z);
 
   float field[8];
   field[0] = fieldFunc(p);
@@ -170,60 +156,26 @@ __global__ void classifyVoxel(uint *voxelVerts, uint *voxelOccupied,
   }
 }
 
-extern "C" void launch_classifyVoxel(dim3 grid, dim3 threads, uint *voxelVerts,
-                                     uint *voxelOccupied, uchar *volume,
-                                     uint3 gridSize, uint3 gridSizeShift,
-                                     uint3 gridSizeMask, uint numVoxels,
-                                     float3 voxelSize, float isoValue)
-{
-  // calculate number of vertices need per voxel
-  classifyVoxel<<<grid, threads>>>(voxelVerts, voxelOccupied, volume, gridSize,
-                                   gridSizeShift, gridSizeMask, numVoxels,
-                                   voxelSize, isoValue, numVertsTex);
-}
-
-// compute interpolated vertex along an edge
-__device__ float3 vertexInterp(float isolevel, float3 p0, float3 p1, float f0,
-                               float f1)
-{
-  float t = (isolevel - f0) / (f1 - f0);
-  return lerp(p0, p1, t);
-}
-
-// compute interpolated vertex position and normal along an edge
-__device__ void vertexInterp2(float isolevel, float3 p0, float3 p1, float4 f0,
-                              float4 f1, float3 &p, float3 &n)
-{
-  float t = (isolevel - f0.w) / (f1.w - f0.w);
-  p = lerp(p0, p1, t);
-  n.x = lerp(f0.x, f1.x, t);
-  n.y = lerp(f0.y, f1.y, t);
-  n.z = lerp(f0.z, f1.z, t);
-  //    n = normalize(n);
-}
-
-// generate triangles for each voxel using marching cubes
-// interpolates normals from field function
+// Generate triangles for each voxel using marching cubes, interpolates normals from field function
 __global__ void generateTriangles(
-    float4 *pos, float4 *norm, uint *numVertsScanned,
-    uint3 gridSize, uint3 gridSizeShift, uint3 gridSizeMask, float3 voxelSize,
-    float isoValue, uint maxVerts,
-    cudaTextureObject_t triTex, cudaTextureObject_t numVertsTex, float xpos, float zpos)
+  float4 *pos, float4 *norm, // VBO data
+  uint *numVertsScanned, // Global data
+  uint3 gridSize, uint3 gridSizeShift, uint3 gridSizeMask, // Grid values
+  float3 voxelSize, float isoValue, uint maxVerts, // More values
+  cudaTextureObject_t triTex, cudaTextureObject_t numVertsTex) // CUDA textures
 {
   uint blockId = __mul24(blockIdx.y, gridDim.x) + blockIdx.x;
   uint i = __mul24(blockId, blockDim.x) + threadIdx.x;
 
   uint voxel = i;
 
-  // compute position in 3d grid
   uint3 gridPos = calcGridPos(voxel, gridSizeShift, gridSizeMask);
 
   float3 p;
-  p.x = -4.0f + (gridPos.x * voxelSize.x);
-  p.y = -4.0f + (gridPos.y * voxelSize.y);
-  p.z = -4.0f + (gridPos.z * voxelSize.z);
+  p.x = -0.5 * (gridSize.x * voxelSize.x) + (gridPos.x * voxelSize.x);
+  p.y = -0.5 * (gridSize.y * voxelSize.y) + (gridPos.y * voxelSize.y);
+  p.z = -0.5 * (gridSize.z * voxelSize.z) + (gridPos.z * voxelSize.z);
 
-  // calculate cell vertex positions
   float3 v[8];
   v[0] = p;
   v[1] = p + make_float3(voxelSize.x, 0, 0);
@@ -234,7 +186,6 @@ __global__ void generateTriangles(
   v[6] = p + make_float3(voxelSize.x, voxelSize.y, voxelSize.z);
   v[7] = p + make_float3(0, voxelSize.y, voxelSize.z);
 
-  // evaluate field values
   float4 field[8];
   field[0] = fieldFunc4(v[0]);
   field[1] = fieldFunc4(v[1]);
@@ -245,8 +196,7 @@ __global__ void generateTriangles(
   field[6] = fieldFunc4(v[6]);
   field[7] = fieldFunc4(v[7]);
 
-  // recalculate flag
-  // (this is faster than storing it in global memory)
+  // Recalculate flag (this is faster than storing it in global memory)
   uint cubeindex;
   cubeindex = uint(field[0].w < isoValue);
   cubeindex += uint(field[1].w < isoValue) * 2;
@@ -257,10 +207,10 @@ __global__ void generateTriangles(
   cubeindex += uint(field[6].w < isoValue) * 64;
   cubeindex += uint(field[7].w < isoValue) * 128;
 
-// find the vertices where the surface intersects the cube
+// Find the vertices where the surface intersects the cube
 
 #if USE_SHARED
-  // use partioned shared memory to avoid using local memory
+  // Use partioned shared memory to avoid using local memory
   __shared__ float3 vertlist[12 * NTHREADS];
   __shared__ float3 normlist[12 * NTHREADS];
 
@@ -333,7 +283,7 @@ __global__ void generateTriangles(
                 normlist[11]);
 #endif
 
-  // output triangle vertices
+  // Output triangle vertices
   uint numVerts = tex1Dfetch<uint>(numVertsTex, cubeindex);
 
   for (int i = 0; i < numVerts; i++) {
@@ -343,8 +293,7 @@ __global__ void generateTriangles(
 
     if (index < maxVerts) {
 #if USE_SHARED
-      float3 vd = vertlist[(edge * NTHREADS) + threadIdx.x] + make_float3(xpos, 0.0f, zpos);
-      pos[index] = make_float4(vd, 1.0f);
+      pos[index] = make_float4(vertlist[(edge * NTHREADS) + threadIdx.x], 1.0f);
       norm[index] = make_float4(normlist[(edge * NTHREADS) + threadIdx.x], 0.0f);
 #else
       pos[index] = make_float4(vertlist[edge], 1.0f);
@@ -354,26 +303,37 @@ __global__ void generateTriangles(
   }
 }
 
-extern "C" void launch_generateTriangles(
-    dim3 grid, dim3 threads, float4 *pos, float4 *norm,
-    uint *numVertsScanned, uint3 gridSize,
-    uint3 gridSizeShift, uint3 gridSizeMask, float3 voxelSize, float isoValue,
-    uint maxVerts, float xpos, float zpos)
+// ========================
+// ======== Extern ========
+// ========================
+
+extern "C" void launchClassifyVoxel(
+  dim3 grid, dim3 threads, 
+  uint *voxelVerts, uint *voxelOccupied,
+  uint3 gridSize, uint3 gridSizeShift,
+  uint3 gridSizeMask, uint numVoxels,
+  float3 voxelSize, float isoValue)
 {
-  generateTriangles<<<grid, NTHREADS>>>(
-      pos, norm, numVertsScanned, gridSize, gridSizeShift,
-      gridSizeMask, voxelSize, isoValue, maxVerts, triTex,
-      numVertsTex, xpos, zpos);
+  classifyVoxel<<<grid, threads>>>(
+  voxelVerts, voxelOccupied,
+  gridSize, gridSizeShift, gridSizeMask,
+  numVoxels, voxelSize, isoValue,
+  numVertsTex);
 }
 
-// calculate triangle normal
-__device__ float3 calcNormal(float3 *v0, float3 *v1, float3 *v2)
+extern "C" void launchGenerateTriangles(
+  dim3 grid, dim3 threads,
+  float4 *pos, float4 *norm,
+  uint *numVertsScanned,
+  uint3 gridSize, uint3 gridSizeShift, uint3 gridSizeMask,
+  float3 voxelSize, float isoValue, uint maxVerts)
 {
-  float3 edge0 = *v1 - *v0;
-  float3 edge1 = *v2 - *v0;
-  // note - it's faster to perform normalization in vertex shader rather than
-  // here
-  return cross(edge0, edge1);
+  generateTriangles<<<grid, NTHREADS>>>(
+    pos, norm, 
+    numVertsScanned,
+    gridSize, gridSizeShift, gridSizeMask,
+    voxelSize, isoValue, maxVerts,
+    triTex, numVertsTex);
 }
 
 extern "C" void ThrustScanWrapper(unsigned int *output, unsigned int *input,
@@ -382,6 +342,59 @@ extern "C" void ThrustScanWrapper(unsigned int *output, unsigned int *input,
   thrust::exclusive_scan(thrust::device_ptr<unsigned int>(input),
                          thrust::device_ptr<unsigned int>(input + numElements),
                          thrust::device_ptr<unsigned int>(output));
+}
+
+extern "C" void allocateTextures(uint **dEdgeTable, uint **dTriTable, uint **dNumVertsTable)
+{
+  cudaMalloc((void**) dEdgeTable, 256 * sizeof(uint));
+  cudaMemcpy((void*) *dEdgeTable, (void*) edgeTable, 256 * sizeof(uint), cudaMemcpyHostToDevice);
+
+  cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(32, 0, 0, 0, cudaChannelFormatKindUnsigned);
+
+  cudaMalloc((void**) dTriTable, 256 * 16 * sizeof(uint));
+  cudaMemcpy((void*) *dTriTable, (void*) triTable, 256 * 16 * sizeof(uint), cudaMemcpyHostToDevice);
+
+  cudaResourceDesc texRes;
+  memset(&texRes, 0, sizeof(cudaResourceDesc));
+
+  texRes.resType = cudaResourceTypeLinear;
+  texRes.res.linear.devPtr = *dTriTable;
+  texRes.res.linear.sizeInBytes = 256 * 16 * sizeof(uint);
+  texRes.res.linear.desc = channelDesc;
+
+  cudaTextureDesc texDescr;
+  memset(&texDescr, 0, sizeof(cudaTextureDesc));
+
+  texDescr.normalizedCoords = false;
+  texDescr.filterMode = cudaFilterModePoint;
+  texDescr.addressMode[0] = cudaAddressModeClamp;
+  texDescr.readMode = cudaReadModeElementType;
+
+  cudaCreateTextureObject(&triTex, &texRes, &texDescr, NULL);
+
+  cudaMalloc((void **)dNumVertsTable, 256 * sizeof(uint));
+  cudaMemcpy((void *)*dNumVertsTable, (void *)numVertsTable, 256 * sizeof(uint), cudaMemcpyHostToDevice);
+
+  memset(&texRes, 0, sizeof(cudaResourceDesc));
+
+  texRes.resType = cudaResourceTypeLinear;
+  texRes.res.linear.devPtr = *dNumVertsTable;
+  texRes.res.linear.sizeInBytes = 256 * sizeof(uint);
+  texRes.res.linear.desc = channelDesc;
+
+  memset(&texDescr, 0, sizeof(cudaTextureDesc));
+
+  texDescr.normalizedCoords = false;
+  texDescr.filterMode = cudaFilterModePoint;
+  texDescr.addressMode[0] = cudaAddressModeClamp;
+  texDescr.readMode = cudaReadModeElementType;
+
+  cudaCreateTextureObject(&numVertsTex, &texRes, &texDescr, NULL);
+}
+
+extern "C" void destroyAllTextureObjects() {
+  cudaDestroyTextureObject(triTex);
+  cudaDestroyTextureObject(numVertsTex);
 }
 
 #endif

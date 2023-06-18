@@ -24,17 +24,18 @@
 #include "defines.h"
 
 // Kernels
-extern "C" void launch_classifyVoxel(dim3 grid, dim3 threads, uint *voxelVerts,
-                                     uint *voxelOccupied, uchar *volume,
-                                     uint3 gridSize, uint3 gridSizeShift,
-                                     uint3 gridSizeMask, uint numVoxels,
-                                     float3 voxelSize, float isoValue);
+extern "C" void launchClassifyVoxel(
+  dim3 grid, dim3 threads,
+  uint *voxelVerts, uint *voxelOccupied,
+  uint3 gridSize, uint3 gridSizeShift, uint3 gridSizeMask,
+  uint numVoxels, float3 voxelSize, float isoValue);
 
-extern "C" void launch_generateTriangles(
-    dim3 grid, dim3 threads, float4 *pos, float4 *norm,
-    uint *numVertsScanned, uint3 gridSize,
-    uint3 gridSizeShift, uint3 gridSizeMask, float3 voxelSize, float isoValue,
-    uint maxVerts, float xpos, float zpos);
+extern "C" void launchGenerateTriangles(
+  dim3 grid, dim3 threads,
+  float4 *pos, float4 *norm,
+  uint *numVertsScanned,
+  uint3 gridSize, uint3 gridSizeShift, uint3 gridSizeMask,
+  float3 voxelSize, float isoValue, uint maxVerts);
 
 extern "C" void allocateTextures(uint **dEdgeTable, uint **dTriTable,
                                  uint **dNumVertsTable);
@@ -45,25 +46,28 @@ extern "C" void ThrustScanWrapper(unsigned int *output, unsigned int *input,
                                   unsigned int numElements);
 
 // MC variables
-uint3 gridSizeLog2 = make_uint3(2, 2, 2);
+uint3 gridSizeLog2 = make_uint3(4, 4, 4);
 uint3 gridSizeShift;
 uint3 gridSize;
 uint3 gridSizeMask;
+
+float worldSize = 12.0f;
 
 float3 voxelSize;
 uint numVoxels = 0;
 uint maxVerts = 0;
 uint totalVerts = 0;
 
-// Device data
+float isoValue = 6.0f;
+
+// OpenGL
 GLuint posVbo, normalVbo;
 
 // CUDA-OpenGL interoperability
 struct cudaGraphicsResource *cudaPosVBOResource, *cudaNormalVBOResource;  
-
 float4 *dPos = 0, *dNormal = 0;
 
-uchar *dVolume = 0;
+// Device data
 uint *dVoxelVerts = 0;
 uint *dVoxelVertsScan = 0;
 uint *dVoxelOccupied = 0;
@@ -74,38 +78,30 @@ uint *dNumVertsTable = 0;
 uint *dEdgeTable = 0;
 uint *dTriTable = 0;
 
-float isoValue = 5.0f;
-float dIsoValue = 0.01f;
-
 // Rendering variables
 Camera* camera;
 PerformanceMonitor* performanceMonitor;
 
-float lastTime;
-float dt;
-
-////////////////////////////////////////////////////////////////////////////////
-//! Create VBO
-////////////////////////////////////////////////////////////////////////////////
+// Creates the VBO
 void createVBO(GLuint *vbo, unsigned int size) {
-  // create buffer object
+  // Create buffer object
   glGenBuffers(1, vbo);
   glBindBuffer(GL_ARRAY_BUFFER, *vbo);
 
-  // initialize buffer object
+  // Initialize buffer object
   glBufferData(GL_ARRAY_BUFFER, size, 0, GL_DYNAMIC_DRAW);
   glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-// Initialize CUDA and MC stuff
-void initCuda()
+// Initialize marching cubes stuff
+void initMarchingCubes()
 {
   gridSize = make_uint3(1 << gridSizeLog2.x, 1 << gridSizeLog2.y, 1 << gridSizeLog2.z);
   gridSizeMask = make_uint3(gridSize.x - 1, gridSize.y - 1, gridSize.z - 1);
   gridSizeShift = make_uint3(0, gridSizeLog2.x, gridSizeLog2.x + gridSizeLog2.y);
 
   numVoxels = gridSize.x * gridSize.y * gridSize.z;
-  voxelSize = make_float3(8.0f / gridSize.x, 8.0f / gridSize.y, 8.0f / gridSize.z);
+  voxelSize = make_float3(worldSize / gridSize.x, worldSize / gridSize.y, worldSize / gridSize.z);
   maxVerts = gridSize.x * gridSize.y * 100;
 
   // Create VBOs
@@ -120,10 +116,10 @@ void initCuda()
 
   // Allocate device memory
   unsigned int memSize = sizeof(uint) * numVoxels;
-  cudaMalloc((void **)&dVoxelVerts, memSize);
-  cudaMalloc((void **)&dVoxelVertsScan, memSize);
-  cudaMalloc((void **)&dVoxelOccupied, memSize);
-  cudaMalloc((void **)&dVoxelOccupiedScan, memSize);
+  cudaMalloc((void**) &dVoxelVerts, memSize);
+  cudaMalloc((void**) &dVoxelVertsScan, memSize);
+  cudaMalloc((void**) &dVoxelOccupied, memSize);
+  cudaMalloc((void**) &dVoxelOccupiedScan, memSize);
 }
 
 void computeIsosurface()
@@ -131,28 +127,30 @@ void computeIsosurface()
   int threads = 32;
   dim3 grid(numVoxels / threads, 1, 1);
 
-  // get around maximum grid size of 65535 in each dimension
+  // Get around maximum grid size of 65535 in each dimension
   if (grid.x > 65535) {
     grid.y = grid.x / 32768;
     grid.x = 32768;
   }
 
-  // calculate number of vertices need per voxel
-  launch_classifyVoxel(grid, threads, dVoxelVerts, dVoxelOccupied, dVolume,
-                        gridSize, gridSizeShift, gridSizeMask, numVoxels,
-                        voxelSize, isoValue);
+  // Calculate number of vertices need per voxel
+  launchClassifyVoxel(
+    grid, threads,
+    dVoxelVerts, dVoxelOccupied,
+    gridSize, gridSizeShift, gridSizeMask,
+    numVoxels, voxelSize, isoValue);
 
-  // scan voxel vertex count array
+  // Scan voxel vertex count array
   ThrustScanWrapper(dVoxelVertsScan, dVoxelVerts, numVoxels);
 
-  // readback total number of vertices
+  // Readback total number of vertices
   {
     uint lastElement, lastScanElement;
-    cudaMemcpy((void *)&lastElement,
-                                (void *)(dVoxelVerts + numVoxels - 1),
+    cudaMemcpy((void*) &lastElement,
+                                (void*) (dVoxelVerts + numVoxels - 1),
                                 sizeof(uint), cudaMemcpyDeviceToHost);
-    cudaMemcpy((void *)&lastScanElement,
-                                (void *)(dVoxelVertsScan + numVoxels - 1),
+    cudaMemcpy((void*) &lastScanElement,
+                                (void*) (dVoxelVertsScan + numVoxels - 1),
                                 sizeof(uint), cudaMemcpyDeviceToHost);
     totalVerts = lastElement + lastScanElement;
   }
@@ -165,16 +163,19 @@ void computeIsosurface()
   cudaGraphicsMapResources(1, &cudaNormalVBOResource, 0);
   cudaGraphicsResourceGetMappedPointer((void **) &dNormal, &numBytes, cudaNormalVBOResource);
 
-  dim3 grid2((int)ceil(numVoxels / (float)NTHREADS), 1, 1);
+  dim3 grid2((int) ceil(numVoxels / (float) NTHREADS), 1, 1);
 
   while (grid2.x > 65535) {
     grid2.x /= 2;
     grid2.y *= 2;
   }
 
-  launch_generateTriangles(grid2, NTHREADS, dPos, dNormal,
-                            dVoxelVertsScan, gridSize, gridSizeShift,
-                            gridSizeMask, voxelSize, isoValue, maxVerts, 0.0f, 0.0f);
+  launchGenerateTriangles(
+    grid2, NTHREADS,
+    dPos, dNormal,
+    dVoxelVertsScan,
+    gridSize, gridSizeShift, gridSizeMask,
+    voxelSize, isoValue, maxVerts);
 
   cudaGraphicsUnmapResources(1, &cudaNormalVBOResource, 0);
   cudaGraphicsUnmapResources(1, &cudaPosVBOResource, 0);
@@ -278,7 +279,7 @@ int main()
 	// Make the VAO the current Vertex Array Object by binding it
 	glBindVertexArray(VAO);
 
-  initCuda();
+  initMarchingCubes();
 
   glBindBuffer(GL_ARRAY_BUFFER, posVbo);
 	glVertexAttribPointer(glGetAttribLocation(shaderProgram, "position"), 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*) 0);
@@ -305,7 +306,7 @@ int main()
 
   glBindVertexArray(0);
 
-  GridRenderer gridRenderer(gridSize.x, 8.0f);
+  GridRenderer gridRenderer(gridSize.x, worldSize);
 
 	// Specify the color of the background
 	glClearColor(0.02f, 0.02f, 0.02f, 1.0f);
