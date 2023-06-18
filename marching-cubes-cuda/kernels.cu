@@ -120,9 +120,9 @@ __global__ void classifyVoxel(
   uint3 gridPos = calcGridPos(i, gridSizeShift, gridSizeMask);
 
   float3 p;
-  p.x = -0.5 * (gridSize.x * voxelSize.x) + (gridPos.x * voxelSize.x);
-  p.y = -0.5 * (gridSize.y * voxelSize.y) + (gridPos.y * voxelSize.y);
-  p.z = -0.5 * (gridSize.z * voxelSize.z) + (gridPos.z * voxelSize.z);
+  p.x = (-0.5 * gridSize.x + gridPos.x) * voxelSize.x;
+  p.y = (-0.5 * gridSize.y + gridPos.y) * voxelSize.y;
+  p.z = (-0.5 * gridSize.z + gridPos.z) * voxelSize.z;
 
   float field[8];
   field[0] = fieldFunc(p);
@@ -172,9 +172,9 @@ __global__ void generateTriangles(
   uint3 gridPos = calcGridPos(voxel, gridSizeShift, gridSizeMask);
 
   float3 p;
-  p.x = -0.5 * (gridSize.x * voxelSize.x) + (gridPos.x * voxelSize.x);
-  p.y = -0.5 * (gridSize.y * voxelSize.y) + (gridPos.y * voxelSize.y);
-  p.z = -0.5 * (gridSize.z * voxelSize.z) + (gridPos.z * voxelSize.z);
+  p.x = (-0.5 * gridSize.x + gridPos.x) * voxelSize.x;
+  p.y = (-0.5 * gridSize.y + gridPos.y) * voxelSize.y;
+  p.z = (-0.5 * gridSize.z + gridPos.z) * voxelSize.z;
 
   float3 v[8];
   v[0] = p;
