@@ -46,7 +46,7 @@ extern "C" void ThrustScanWrapper(unsigned int *output, unsigned int *input,
                                   unsigned int numElements);
 
 // MC variables
-uint3 gridSizeLog2 = make_uint3(1, 1, 1);
+uint3 gridSizeLog2 = make_uint3(8, 8, 8);
 uint3 gridSizeShift;
 uint3 gridSize;
 uint3 gridSizeMask;
@@ -133,12 +133,16 @@ void computeIsosurface()
     blocks.x = 32768;
   }
 
+  performanceMonitor->startProcessTimer(PerformanceMonitor::CLASSIFY_PROCESS);
+
   // Calculate number of vertices need per voxel
   launchClassifyVoxel(
     blocks, threads,
     dVoxelVerts, dVoxelOccupied,
     gridSize, gridSizeShift, gridSizeMask,
     numVoxels, voxelSize, isoValue);
+
+  performanceMonitor->endProcessTimer(PerformanceMonitor::CLASSIFY_PROCESS);  
 
   // Scan voxel vertex count array
   ThrustScanWrapper(dVoxelVertsScan, dVoxelVerts, numVoxels);
@@ -149,7 +153,6 @@ void computeIsosurface()
     cudaMemcpy((void*) &lastElement, (void*) (dVoxelVerts + numVoxels - 1), sizeof(uint), cudaMemcpyDeviceToHost);
     cudaMemcpy((void*) &lastScanElement, (void*) (dVoxelVertsScan + numVoxels - 1), sizeof(uint), cudaMemcpyDeviceToHost);
     totalVerts = lastElement + lastScanElement;
-    std::cout << totalVerts << std::endl;
   }
 
   // Generate triangles, writing to vertex buffers
@@ -167,12 +170,16 @@ void computeIsosurface()
     grid2.y *= 2;
   }
 
+  performanceMonitor->startProcessTimer(PerformanceMonitor::GENERATE_TRIANGLES_PROCESS);
+
   launchGenerateTriangles(
     grid2, NTHREADS,
     dPos, dNormal,
     dVoxelVertsScan,
     gridSize, gridSizeShift, gridSizeMask,
     voxelSize, isoValue, maxVerts);
+
+  performanceMonitor->endProcessTimer(PerformanceMonitor::GENERATE_TRIANGLES_PROCESS);
 
   cudaGraphicsUnmapResources(1, &cudaNormalVBOResource, 0);
   cudaGraphicsUnmapResources(1, &cudaPosVBOResource, 0);
@@ -213,7 +220,7 @@ int main()
   glfwMakeContextCurrent(window);
 
   camera = new Camera(window, 1280, 720);
-  performanceMonitor = new PerformanceMonitor(glfwGetTime(), 1.0f);
+  performanceMonitor = new PerformanceMonitor(glfwGetTime(), "mc-cuda");
 
   // Set GLFW callbacks
   glfwSetCursorPosCallback(window, handleMouseMove);
@@ -324,7 +331,7 @@ int main()
     performanceMonitor->update(glfwGetTime());
     camera->update(performanceMonitor->dt);
 
-    sprintf(title, "CUDA Marching Cubes [%.1f FPS]", performanceMonitor->getFPS());
+    sprintf(title, "CUDA Marching Cubes [%.1f FPS]", performanceMonitor->framesPerSecond);
     glfwSetWindowTitle(window, title);
 
     glUseProgram(shaderProgram);
@@ -335,7 +342,11 @@ int main()
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera->view));
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera->projection));
 
+    performanceMonitor->startProcessTimer(PerformanceMonitor::DRAW_PROCESS);
+
     glDrawArrays(GL_TRIANGLES, 0, totalVerts);
+
+    performanceMonitor->endProcessTimer(PerformanceMonitor::DRAW_PROCESS);
 
     glUseProgram(gridRenderer.shaderProgram);
     glUniform3fv(glGetUniformLocation(gridRenderer.shaderProgram, "viewPosition"), 1, glm::value_ptr(camera->position));

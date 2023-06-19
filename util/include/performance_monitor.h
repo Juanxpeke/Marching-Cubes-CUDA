@@ -1,48 +1,50 @@
-/**
- * @file performance_monitor.h
- * @brief Simple class to monitor the frames per second of an application
- * 
- * @author Daniel Calderón
- * @license MIT
-*/
-
 #pragma once
 
-#include <string>
 #include <iostream>
-#include <sstream>
 #include <iomanip>
+#include <sstream>
+#include <fstream>
+#include <filesystem>
+#include <string>
+#include <chrono>
+#include <map>
+#include <vector>
 
-/** Convenience class to measure simple performance metrics */
 class PerformanceMonitor
 {
-private:
-    float _currentTime;
-    float _timer;
-    float _period;
-    int _framesCounter;
-    float _framesPerSecond;
-    float _milisecondsPerFrame;
-
 public:
-    float dt;
+	static const int CLASSIFY_PROCESS = 0;
+	static const int GENERATE_TRIANGLES_PROCESS = 1;
+	static const int DRAW_PROCESS = 2;
 
-    /** Set the first reference time and the period of time over to compute the average frames per second */
-    PerformanceMonitor(float currentTime, float period):
-        _currentTime(currentTime),
-        _timer(0.0f),
-        _period(period),
-        _framesCounter(0),
-        _framesPerSecond(0.0f),
-        _milisecondsPerFrame(0.0f)
-    {}
+	float dt;
+	float framesPerSecond;
 
-    /** It must be called once per frame to update the internal metrics */
-    void update(float currentTime);
+	PerformanceMonitor(float currentTime, const std::string &exportFolderName);
+	void update(float currentTime);
+	void startProcessTimer(int process);
+  void endProcessTimer(int process);
 
-    inline float getFPS() const { return _framesPerSecond; }
+private:
+	float fpsPeriod;
+	float fpsTimer;
+	int fpsPeriodIterations;
 
-    inline float getMS() const { return _milisecondsPerFrame; }
+	int totalIterations;
+	float lastIterationTime;
+
+	std::chrono::high_resolution_clock::time_point processStartTime;
+  std::chrono::high_resolution_clock::time_point processEndTime;
+	
+	int processIterations[3] = { 0, 0, 0 };
+	double processElapsedTimes[3] = { 0.0, 0.0, 0.0 };
+	std::string processKeys[3] = { "classify", "generate", "draw" };
+
+	std::map<std::string,std::vector<std::pair<double, double>>> store;
+
+	bool dataExported = false;
+	std::string exportFolderName;
+	int exportDataIterations = 1000;
+
+	void exportData(const std::string &folder);
 };
-
-std::ostream& operator<<(std::ostream& os, const PerformanceMonitor& perfMonitor);
