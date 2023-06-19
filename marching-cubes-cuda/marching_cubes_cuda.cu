@@ -46,7 +46,7 @@ extern "C" void ThrustScanWrapper(unsigned int *output, unsigned int *input,
                                   unsigned int numElements);
 
 // MC variables
-uint3 gridSizeLog2 = make_uint3(8, 8, 8);
+uint3 gridSizeLog2 = make_uint3(7, 7, 7);
 uint3 gridSizeShift;
 uint3 gridSize;
 uint3 gridSizeMask;
@@ -124,6 +124,7 @@ void initMarchingCubes()
 
 void computeIsosurface()
 {
+
   int threads = min(NTHREADS, numVoxels);
   dim3 blocks(numVoxels / threads, 1, 1);
 
@@ -134,14 +135,13 @@ void computeIsosurface()
   }
 
   performanceMonitor->startProcessTimer(PerformanceMonitor::CLASSIFY_PROCESS);
-
   // Calculate number of vertices need per voxel
   launchClassifyVoxel(
     blocks, threads,
     dVoxelVerts, dVoxelOccupied,
     gridSize, gridSizeShift, gridSizeMask,
     numVoxels, voxelSize, isoValue);
-
+  cudaDeviceSynchronize();
   performanceMonitor->endProcessTimer(PerformanceMonitor::CLASSIFY_PROCESS);  
 
   // Scan voxel vertex count array
@@ -171,14 +171,13 @@ void computeIsosurface()
   }
 
   performanceMonitor->startProcessTimer(PerformanceMonitor::GENERATE_TRIANGLES_PROCESS);
-
   launchGenerateTriangles(
     grid2, NTHREADS,
     dPos, dNormal,
     dVoxelVertsScan,
     gridSize, gridSizeShift, gridSizeMask,
     voxelSize, isoValue, maxVerts);
-
+  cudaDeviceSynchronize();
   performanceMonitor->endProcessTimer(PerformanceMonitor::GENERATE_TRIANGLES_PROCESS);
 
   cudaGraphicsUnmapResources(1, &cudaNormalVBOResource, 0);
@@ -337,15 +336,15 @@ int main()
     glUseProgram(shaderProgram);
     glBindVertexArray(VAO);
 
+    performanceMonitor->startProcessTimer(PerformanceMonitor::MARCHING_CUBE_PROCESS);
     computeIsosurface();
+    performanceMonitor->endProcessTimer(PerformanceMonitor::MARCHING_CUBE_PROCESS);
 
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "view"), 1, GL_FALSE, glm::value_ptr(camera->view));
     glUniformMatrix4fv(glGetUniformLocation(shaderProgram, "projection"), 1, GL_FALSE, glm::value_ptr(camera->projection));
 
     performanceMonitor->startProcessTimer(PerformanceMonitor::DRAW_PROCESS);
-
     glDrawArrays(GL_TRIANGLES, 0, totalVerts);
-
     performanceMonitor->endProcessTimer(PerformanceMonitor::DRAW_PROCESS);
 
     glUseProgram(gridRenderer.shaderProgram);

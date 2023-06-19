@@ -13,38 +13,39 @@
 class PerformanceMonitor
 {
 public:
-	static const int CLASSIFY_PROCESS = 0;
-	static const int GENERATE_TRIANGLES_PROCESS = 1;
-	static const int DRAW_PROCESS = 2;
+	static const int MARCHING_CUBE_PROCESS = 0;
+	static const int CLASSIFY_PROCESS = 1;
+	static const int GENERATE_TRIANGLES_PROCESS = 2;
+	static const int DRAW_PROCESS = 3;
 
 	float dt;
 	float framesPerSecond;
 
 	PerformanceMonitor(float currentTime, const std::string &exportFolderName);
-	void update(float currentTime);
+	void update(float currentTime); // Must be called each frame
 	void startProcessTimer(int process);
   void endProcessTimer(int process);
 
 private:
-	float fpsPeriod;
 	float fpsTimer;
+	int fpsResetIterations;
 	int fpsPeriodIterations;
 
 	int totalIterations;
 	float lastIterationTime;
 
-	std::chrono::high_resolution_clock::time_point processStartTime;
-  std::chrono::high_resolution_clock::time_point processEndTime;
+	std::chrono::high_resolution_clock::time_point processStartTimes[4];
+  std::chrono::high_resolution_clock::time_point processEndTimes[4];
 	
-	int processIterations[3] = { 0, 0, 0 };
-	double processElapsedTimes[3] = { 0.0, 0.0, 0.0 };
-	std::string processKeys[3] = { "classify", "generate", "draw" };
+	int processIterations[4] = { 0, 0, 0, 0 };
+	double processElapsedTimes[4] = { 0.0, 0.0, 0.0, 0.0 };
+	std::string processKeys[4] = { "marching_cubes", "classify", "generate", "draw" };
 
 	std::map<std::string,std::vector<std::pair<double, double>>> store;
 
 	bool dataExported = false;
 	std::string exportFolderName;
-	int exportDataIterations = 1000;
+	int exportDataIterations;
 
 	void exportData(const std::string &folder);
 };

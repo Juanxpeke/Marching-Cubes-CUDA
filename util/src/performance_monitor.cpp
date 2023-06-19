@@ -3,11 +3,12 @@
 PerformanceMonitor::PerformanceMonitor(float currentTime, const std::string &exportFolderName):
   totalIterations(0),
   lastIterationTime(currentTime),
-  fpsPeriod(0.5f),
-  fpsTimer(0.0f),
+  fpsResetIterations(10),
   fpsPeriodIterations(0),
+  fpsTimer(0.0f),
   framesPerSecond(0.0f),
-  exportFolderName(exportFolderName)
+  exportFolderName(exportFolderName),
+  exportDataIterations(1000)
 {}
 
 void PerformanceMonitor::update(float currentTime)
@@ -20,7 +21,7 @@ void PerformanceMonitor::update(float currentTime)
   fpsTimer += dt;
   lastIterationTime = currentTime;
 
-  if (fpsTimer > fpsPeriod)
+  if (fpsPeriodIterations >= fpsResetIterations)
   {
     framesPerSecond = fpsPeriodIterations / fpsTimer;
     fpsPeriodIterations = 0;
@@ -39,23 +40,24 @@ void PerformanceMonitor::update(float currentTime)
 
 void PerformanceMonitor::startProcessTimer(int process)
 {
-  if (process >= 3 || dataExported) return;
-  processStartTime = std::chrono::high_resolution_clock::now();
+  if (process >= 4 || dataExported) return;
+  processStartTimes[process] = std::chrono::high_resolution_clock::now();
 }
 
 void PerformanceMonitor::endProcessTimer(int process)
 {
-  if (process >= 3 || dataExported) return;
+  if (process >= 4 || dataExported) return;
       
-  processEndTime = std::chrono::high_resolution_clock::now();
-  double elapsedTime = std::chrono::duration<double>(processEndTime - processStartTime).count();
+  processEndTimes[process] = std::chrono::high_resolution_clock::now();
+  double elapsedTime = std::chrono::duration<double>(processEndTimes[process] - processStartTimes[process]).count();
   processElapsedTimes[process] += elapsedTime;
   processIterations[process]++;
 
   store[processKeys[process]].push_back(std::make_pair(processElapsedTimes[process], processIterations[process]));
 }
 
-void PerformanceMonitor::exportData(const std::string &folderPath) {
+void PerformanceMonitor::exportData(const std::string &folderPath)
+{
   std::cout << "Exporting data..." << std::endl;
 
   std::filesystem::create_directories(folderPath);
@@ -71,12 +73,13 @@ void PerformanceMonitor::exportData(const std::string &folderPath) {
     std::ofstream file(filePath);
     for (auto vIt = values.begin(); vIt != values.end(); ++vIt)
     {
-    double p1 = vIt->first;
-    double p2 = vIt->second;
-    if (file.is_open()) {
-    file << p1 << "," << p2 << std::endl;
-    } else
-    std::cout << "Failed to open the file: " << filePath << std::endl;
+      double p1 = vIt->first;
+      double p2 = vIt->second;
+      if (file.is_open()) {
+        file << p1 << "," << p2 << std::endl;
+      } else {
+        std::cout << "Failed to open the file: " << filePath << std::endl;
+      }
     }
     file.close();
   }
