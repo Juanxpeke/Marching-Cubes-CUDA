@@ -47,7 +47,7 @@ void Camera::update(float dt)
 	updateFromInputs(dt);
 
   view = glm::lookAt(position, position + targetOffset, up);
-	projection = glm::perspective(glm::radians(FOV), (float)(width / height), near, far);
+	projection = glm::perspective(glm::radians(FOV), (float)(width) / height, near, far);
 }
 
 void Camera::handleMouseMove(double xPos, double yPos) {

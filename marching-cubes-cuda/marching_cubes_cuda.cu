@@ -218,7 +218,7 @@ int main()
 
   glfwMakeContextCurrent(window);
 
-  camera = new Camera(window, 1280, 720);
+  camera = new Camera(window, width, height);
   performanceMonitor = new PerformanceMonitor(glfwGetTime(), "mc-cuda");
 
   // Set GLFW callbacks
