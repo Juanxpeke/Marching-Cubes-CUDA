@@ -46,19 +46,19 @@ extern "C" void ThrustScanWrapper(unsigned int *output, unsigned int *input,
                                   unsigned int numElements);
 
 // MC variables
-uint3 gridSizeLog2 = make_uint3(5, 5, 5);
+uint3 gridSizeLog2 = make_uint3(6, 6, 6);
 uint3 gridSizeShift;
 uint3 gridSize;
 uint3 gridSizeMask;
 
-float worldSize = 20.0f;
+float worldSize = 2.0f;
 
 float3 voxelSize;
 uint numVoxels = 0;
 uint maxVerts = 0;
 uint totalVerts = 0;
 
-float isoValue = 0.0f;
+float isoValue = -0.4f;
 
 // OpenGL
 GLuint posVbo, normalVbo;
@@ -236,6 +236,11 @@ int main()
     std::cout << "Failed to initialize GLAD" << std::endl;
     exit(1);
   }
+
+#if ENABLE_FACE_CULLING
+  glEnable(GL_CULL_FACE); 
+  glCullFace(GL_FRONT);
+#endif  
 
   // Shaders
   std::string vertexShaderCode = getFileContent("../../shaders/mc.vert");
