@@ -24,7 +24,8 @@ private:
   GLuint VAO;
   GLuint VBO;
   int numVertices;
-  float renderDistance;
+  float near;
+  float far;
 
   void compileShaders();
   void initBuffers();

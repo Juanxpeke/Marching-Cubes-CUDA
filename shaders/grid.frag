@@ -1,21 +1,23 @@
 #version 460 core
 
-uniform float renderDistance;
+uniform float near;
+uniform float far;
 uniform vec3 viewPosition;
 
 in vec3 fragPosition;
+in float fragBorderWeight;
 
 out vec4 fragColor;
 
 void main()
 {
-  float dx = viewPosition.x - fragPosition.x;
-  float dy = viewPosition.y - fragPosition.y;
-  float dz = viewPosition.z - fragPosition.z;
-  float distance = sqrt(dx * dx + dy * dy + dz * dz);
+  float fDistance = distance(viewPosition, fragPosition);
 
-  float cappedDistance = min(distance, renderDistance);
-  float alpha = 0.6f * (1.0f - cappedDistance / renderDistance); 
+  float cappedDistance = max(min(fDistance, far), near);
+
+  float halfDistance = (near + far) * 0.5f;
+  float halfLength = (far - near) * 0.5f; 
+  float alpha = 0.4f * (1.0f - abs(cappedDistance - halfDistance) / halfLength) + fragBorderWeight; 
 
   fragColor = vec4(1.0, 1.0, 1.0, alpha);
 }
