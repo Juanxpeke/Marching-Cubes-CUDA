@@ -33,13 +33,13 @@ typedef unsigned char uchar;
 
 // Using shared to store computed vertices and normals during triangle
 // generation improves performance
-#define USE_SHARED 1
+#define USE_SHARED 0
 
 // The number of threads to use for triangle generation (limited by shared
 // memory size)
 #define NTHREADS 32
 
 // OpenGL
-#define DISABLE_FPS_CAPPING 0
+#define DISABLE_FPS_CAPPING 1
 
 #endif

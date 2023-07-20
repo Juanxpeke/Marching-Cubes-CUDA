@@ -46,19 +46,19 @@ extern "C" void ThrustScanWrapper(unsigned int *output, unsigned int *input,
                                   unsigned int numElements);
 
 // MC variables
-uint3 gridSizeLog2 = make_uint3(7, 7, 7);
+uint3 gridSizeLog2 = make_uint3(5, 5, 5);
 uint3 gridSizeShift;
 uint3 gridSize;
 uint3 gridSizeMask;
 
-float worldSize = 2.5f;
+float worldSize = 20.0f;
 
 float3 voxelSize;
 uint numVoxels = 0;
 uint maxVerts = 0;
 uint totalVerts = 0;
 
-float isoValue = 1.0f;
+float isoValue = 0.0f;
 
 // OpenGL
 GLuint posVbo, normalVbo;

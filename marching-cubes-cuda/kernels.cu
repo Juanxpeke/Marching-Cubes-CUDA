@@ -21,6 +21,131 @@
 cudaTextureObject_t triTex;
 cudaTextureObject_t numVertsTex;
 
+// =====================
+// ==== Noise logic ====
+// =====================
+
+__device__ float3 mod289(float3 x)
+{
+    return x - floorf(x / 289) * 289;
+}
+
+__device__ float4 mod289(float4 x)
+{
+    return x - floorf(x / 289) * 289;
+}
+
+__device__ float3 permute(float3 x)
+{
+    return mod289((x * 34 + 1) * x);
+}
+
+__device__ float4 permute(float4 x)
+{
+    return mod289((x * 34 + 1) * x);
+}
+
+__device__ float3 fade(float3 t)
+{
+    return t * t * t * (t * (t * 6 - 15) + 10);
+}
+
+__device__ float classic_perlin_impl(float3 pi0, float3 pf0, float3 pi1, float3 pf1)
+{
+    pi0 = mod289(pi0);
+    pi1 = mod289(pi1);
+
+    float4 ix = make_float4(pi0.x, pi1.x, pi0.x, pi1.x);
+    float4 iy = make_float4(pi0.y, pi0.y, pi1.y, pi1.y);
+    float4 iz0 = make_float4(pi0.z);
+    float4 iz1 = make_float4(pi1.z);
+
+    float4 ixy = permute(permute(ix) + iy);
+    float4 ixy0 = permute(ixy + iz0);
+    float4 ixy1 = permute(ixy + iz1);
+
+    float4 gx0 = lerp(make_float4(-1), make_float4(1), fracf(floorf(ixy0 / 7) / 7));
+    float4 gy0 = lerp(make_float4(-1), make_float4(1), fracf(floorf(fmodf(ixy0, 7)) / 7));
+    float4 gz0 = 1 - fabs(gx0) - fabs(gy0);
+
+    // bool4 zn0 = gz0 < -0.01;
+    // gx0 += zn0 * (gx0 < -0.01 ? 1 : -1);
+    // gy0 += zn0 * (gy0 < -0.01 ? 1 : -1);
+
+    uint4 zn0;
+    zn0.x = gz0.x < -0.01;
+    zn0.y = gz0.y < -0.01;
+    zn0.z = gz0.z < -0.01;
+    zn0.w = gz0.w < -0.01;
+
+    gx0.x += zn0.x * (gx0.x < -0.01 ? 1 : -1);
+    gx0.y += zn0.y * (gx0.y < -0.01 ? 1 : -1);
+    gx0.z += zn0.z * (gx0.z < -0.01 ? 1 : -1);
+    gx0.w += zn0.w * (gx0.w < -0.01 ? 1 : -1);
+
+    gy0.x += zn0.x * (gy0.x < -0.01 ? 1 : -1);
+    gy0.y += zn0.y * (gy0.y < -0.01 ? 1 : -1);
+    gy0.z += zn0.z * (gy0.z < -0.01 ? 1 : -1);
+    gy0.w += zn0.w * (gy0.w < -0.01 ? 1 : -1);
+
+    float4 gx1 = lerp(make_float4(-1), make_float4(1), fracf(floorf(ixy1 / 7) / 7));
+    float4 gy1 = lerp(make_float4(-1), make_float4(1), fracf(floorf(fmodf(ixy1,7)) / 7));
+    float4 gz1 = 1 - fabs(gx1) - fabs(gy1);
+
+    // bool4 zn1 = gz1 < -0.01;
+    // gx1 += zn1 * (gx1 < -0.01 ? 1 : -1);
+    // gy1 += zn1 * (gy1 < -0.01 ? 1 : -1);
+
+    uint4 zn1;
+    zn1.x = gz1.x < -0.01 ? true : false;
+    zn1.y = gz1.y < -0.01 ? true : false;
+    zn1.z = gz1.z < -0.01 ? true : false;
+    zn1.w = gz1.w < -0.01 ? true : false;
+
+    gx1.x += zn1.x * (gx1.x < -0.01 ? 1 : -1);
+    gx1.y += zn1.y * (gx1.y < -0.01 ? 1 : -1);
+    gx1.z += zn1.z * (gx1.z < -0.01 ? 1 : -1);
+    gx1.w += zn1.w * (gx1.w < -0.01 ? 1 : -1);
+
+    gy1.x += zn1.x * (gy1.x < -0.01 ? 1 : -1);
+    gy1.y += zn1.y * (gy1.y < -0.01 ? 1 : -1);
+    gy1.z += zn1.z * (gy1.z < -0.01 ? 1 : -1);
+    gy1.w += zn1.w * (gy1.w < -0.01 ? 1 : -1);
+
+    float3 g000 = normalize(make_float3(gx0.x, gy0.x, gz0.x));
+    float3 g100 = normalize(make_float3(gx0.y, gy0.y, gz0.y));
+    float3 g010 = normalize(make_float3(gx0.z, gy0.z, gz0.z));
+    float3 g110 = normalize(make_float3(gx0.w, gy0.w, gz0.w));
+    float3 g001 = normalize(make_float3(gx1.x, gy1.x, gz1.x));
+    float3 g101 = normalize(make_float3(gx1.y, gy1.y, gz1.y));
+    float3 g011 = normalize(make_float3(gx1.z, gy1.z, gz1.z));
+    float3 g111 = normalize(make_float3(gx1.w, gy1.w, gz1.w));
+
+    float n000 = dot(g000, pf0);
+    float n100 = dot(g100, make_float3(pf1.x, pf0.y, pf0.z));
+    float n010 = dot(g010, make_float3(pf0.x, pf1.y, pf0.z));
+    float n110 = dot(g110, make_float3(pf1.x, pf1.y, pf0.z));
+    float n001 = dot(g001, make_float3(pf0.x, pf0.y, pf1.z));
+    float n101 = dot(g101, make_float3(pf1.x, pf0.y, pf1.z));
+    float n011 = dot(g011, make_float3(pf0.x, pf1.y, pf1.z));
+    float n111 = dot(g111, pf1);
+
+    float3 fade_xyz = fade(pf0);
+    float4 n_z = lerp(make_float4(n000, n100, n010, n110),
+                      make_float4(n001, n101, n011, n111), fade_xyz.z);
+    float2 n_yz = lerp(make_float2(n_z.x, n_z.y),
+                      make_float2(n_z.z, n_z.w), fade_xyz.y);
+    float n_xyz = lerp(n_yz.x, n_yz.y, fade_xyz.x);
+    return 1.46 * n_xyz;
+}
+
+__device__ float classic_perlin(float3 p)
+{
+    float3 i = floorf(p);
+    float3 f = fracf(p);
+    return classic_perlin_impl(i, f, i + 1, f - 1);
+}
+
 // ===================================
 // ======== Density functions ========
 // ===================================
@@ -45,21 +170,30 @@ __device__ float sphere(float x, float y, float z)
   return sqrtf(x * x + y * y + z * z);
 }
 
+__device__ float noise(float x, float y, float z)
+{
+  float density = -y;
+  density += classic_perlin(make_float3(x, y, z));
+  return density;
+}
+
+#define DENSITY(x, y, z) noise(x, y, z)
+
 // ======================
 // ======== Misc ========
 // ======================
 
 // Evaluate field function at point
-__device__ float fieldFunc(float3 p) { return sphere(p.x, p.y, p.z); }
+__device__ float fieldFunc(float3 p) { return DENSITY(p.x, p.y, p.z); }
 
 // Evaluate field function at a point, returns value and gradient in float4
 __device__ float4 fieldFunc4(float3 p)
 {
-  float v = sphere(p.x, p.y, p.z);
+  float v = DENSITY(p.x, p.y, p.z);
   const float d = 0.001f;
-  float dx = sphere(p.x + d, p.y, p.z) - v;
-  float dy = sphere(p.x, p.y + d, p.z) - v;
-  float dz = sphere(p.x, p.y, p.z + d) - v;
+  float dx = DENSITY(p.x + d, p.y, p.z) - v;
+  float dy = DENSITY(p.x, p.y + d, p.z) - v;
+  float dz = DENSITY(p.x, p.y, p.z + d) - v;
   return make_float4(dx, dy, dz, v);
 }
 
@@ -115,9 +249,9 @@ __global__ void classifyVoxel(
   cudaTextureObject_t numVertsTex) // CUDA texture
 {
   uint blockId = __mul24(blockIdx.y, gridDim.x) + blockIdx.x;
-  uint i = __mul24(blockId, blockDim.x) + threadIdx.x;
+  uint voxel = __mul24(blockId, blockDim.x) + threadIdx.x;
 
-  uint3 gridPos = calcGridPos(i, gridSizeShift, gridSizeMask);
+  uint3 gridPos = calcGridPos(voxel, gridSizeShift, gridSizeMask);
 
   float3 p;
   p.x = (-0.5 * gridSize.x + gridPos.x) * voxelSize.x;
@@ -150,9 +284,9 @@ __global__ void classifyVoxel(
   uint numVerts = tex1Dfetch<uint>(numVertsTex, cubeindex);
 
   // TODO: Padding (?)
-  if (i < numVoxels) {
-    voxelVerts[i] = numVerts;
-    voxelOccupied[i] = (numVerts > 0);
+  if (voxel < numVoxels) {
+    voxelVerts[voxel] = numVerts;
+    voxelOccupied[voxel] = (numVerts > 0);
   }
 }
 
@@ -165,9 +299,7 @@ __global__ void generateTriangles(
   cudaTextureObject_t triTex, cudaTextureObject_t numVertsTex) // CUDA textures
 {
   uint blockId = __mul24(blockIdx.y, gridDim.x) + blockIdx.x;
-  uint i = __mul24(blockId, blockDim.x) + threadIdx.x;
-
-  uint voxel = i;
+  uint voxel = __mul24(blockId, blockDim.x) + threadIdx.x;
 
   uint3 gridPos = calcGridPos(voxel, gridSizeShift, gridSizeMask);
 
@@ -214,7 +346,8 @@ __global__ void generateTriangles(
   __shared__ float3 vertlist[12 * NTHREADS];
   __shared__ float3 normlist[12 * NTHREADS];
 
-  vertexInterp2(isoValue, v[0], v[1], field[0], field[1], vertlist[threadIdx.x],
+  vertexInterp2(isoValue, v[0], v[1], field[0], field[1],
+                vertlist[threadIdx.x],
                 normlist[threadIdx.x]);
   vertexInterp2(isoValue, v[1], v[2], field[1], field[2],
                 vertlist[threadIdx.x + NTHREADS],
