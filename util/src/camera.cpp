@@ -40,6 +40,9 @@ void Camera::updateFromInputs(float dt)
   if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS) {
     position -= dt * speed * up;
   }
+  if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+    glfwSetWindowShouldClose(window, true);
+  }
 }
 
 void Camera::update(float dt)
