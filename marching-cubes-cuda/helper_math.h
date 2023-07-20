@@ -18,9 +18,9 @@ typedef unsigned short ushort;
 #ifndef __CUDACC__
 #include <math.h>
 
-////////////////////////////////////////////////////////////////////////////////
-// host implementations of CUDA functions
-////////////////////////////////////////////////////////////////////////////////
+// ========================================================
+// ======== Host implementations of CUDA functions ========
+// ========================================================
 
 inline float fminf(float a, float b)
 {
@@ -48,9 +48,9 @@ inline float rsqrtf(float x)
 }
 #endif
 
-////////////////////////////////////////////////////////////////////////////////
-// constructors
-////////////////////////////////////////////////////////////////////////////////
+// ==============================
+// ======== Constructors ========
+// ==============================
 
 inline __host__ __device__ float2 make_float2(float s)
 {
@@ -226,9 +226,9 @@ inline __host__ __device__ uint4 make_uint4(int4 a)
     return make_uint4(uint(a.x), uint(a.y), uint(a.z), uint(a.w));
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// negate
-////////////////////////////////////////////////////////////////////////////////
+// ========================
+// ======== Negate ========
+// ========================
 
 inline __host__ __device__ float2 operator-(float2 &a)
 {
@@ -255,9 +255,9 @@ inline __host__ __device__ int4 operator-(int4 &a)
     return make_int4(-a.x, -a.y, -a.z, -a.w);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// addition
-////////////////////////////////////////////////////////////////////////////////
+// ==========================
+// ======== Addition ========
+// ==========================
 
 inline __host__ __device__ float2 operator+(float2 a, float2 b)
 {
@@ -486,9 +486,9 @@ inline __host__ __device__ void operator+=(uint4 &a, uint b)
     a.w += b;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// subtract
-////////////////////////////////////////////////////////////////////////////////
+// ==========================
+// ======== Subtract ========
+// ==========================
 
 inline __host__ __device__ float2 operator-(float2 a, float2 b)
 {
@@ -944,9 +944,9 @@ inline __host__ __device__ void operator*=(uint4 &a, uint b)
     a.w *= b;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// divide
-////////////////////////////////////////////////////////////////////////////////
+// ========================
+// ======== Divide ========
+// ========================
 
 inline __host__ __device__ float2 operator/(float2 a, float2 b)
 {
@@ -1023,9 +1023,9 @@ inline __host__ __device__ float4 operator/(float b, float4 a)
     return make_float4(b / a.x, b / a.y, b / a.z, b / a.w);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// min
-////////////////////////////////////////////////////////////////////////////////
+// =====================
+// ======== Min ========
+// =====================
 
 inline  __host__ __device__ float2 fminf(float2 a, float2 b)
 {
@@ -1066,9 +1066,9 @@ inline __host__ __device__ uint4 min(uint4 a, uint4 b)
     return make_uint4(min(a.x,b.x), min(a.y,b.y), min(a.z,b.z), min(a.w,b.w));
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// max
-////////////////////////////////////////////////////////////////////////////////
+// =====================
+// ======== Max ========
+// =====================
 
 inline __host__ __device__ float2 fmaxf(float2 a, float2 b)
 {
@@ -1109,10 +1109,10 @@ inline __host__ __device__ uint4 max(uint4 a, uint4 b)
     return make_uint4(max(a.x,b.x), max(a.y,b.y), max(a.z,b.z), max(a.w,b.w));
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// lerp
-// - linear interpolation between a and b, based on value t in [0, 1] range
-////////////////////////////////////////////////////////////////////////////////
+// ========================================================================
+// Lerp
+// - Linear interpolation between a and b, based on value t in [0, 1] range
+// ========================================================================
 
 inline __device__ __host__ float lerp(float a, float b, float t)
 {
@@ -1143,10 +1143,10 @@ inline __device__ __host__ float4 lerp(float4 a, float4 b, float4 t)
     return make_float4(lerp(a.x, b.x, t.x), lerp(a.y, b.y, t.y), lerp(a.z, b.z, t.z), lerp(a.w, b.w, t.w));
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// clamp
-// - clamp the value v to be in the range [a, b]
-////////////////////////////////////////////////////////////////////////////////
+// =============================================
+// Clamp
+// - Clamp the value v to be in the range [a, b]
+// =============================================
 
 inline __device__ __host__ float clamp(float f, float a, float b)
 {
@@ -1236,9 +1236,9 @@ inline __device__ __host__ uint4 clamp(uint4 v, uint4 a, uint4 b)
     return make_uint4(clamp(v.x, a.x, b.x), clamp(v.y, a.y, b.y), clamp(v.z, a.z, b.z), clamp(v.w, a.w, b.w));
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// dot product
-////////////////////////////////////////////////////////////////////////////////
+// =============================
+// ======== Dot product ========
+// =============================
 
 inline __host__ __device__ float dot(float2 a, float2 b)
 {
@@ -1279,9 +1279,9 @@ inline __host__ __device__ uint dot(uint4 a, uint4 b)
     return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// length
-////////////////////////////////////////////////////////////////////////////////
+// ========================
+// ======== Length ========
+// ========================
 
 inline __host__ __device__ float length(float2 v)
 {
@@ -1296,9 +1296,9 @@ inline __host__ __device__ float length(float4 v)
     return sqrtf(dot(v, v));
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// normalize
-////////////////////////////////////////////////////////////////////////////////
+// ===========================
+// ======== Normalize ========
+// ===========================
 
 inline __host__ __device__ float2 normalize(float2 v)
 {
@@ -1316,9 +1316,9 @@ inline __host__ __device__ float4 normalize(float4 v)
     return v * invLen;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// floor
-////////////////////////////////////////////////////////////////////////////////
+// =======================
+// ======== Floor ========
+// =======================
 
 inline __host__ __device__ float2 floorf(float2 v)
 {
@@ -1333,9 +1333,9 @@ inline __host__ __device__ float4 floorf(float4 v)
     return make_float4(floorf(v.x), floorf(v.y), floorf(v.z), floorf(v.w));
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// frac - returns the fractional portion of a scalar or each vector component
-////////////////////////////////////////////////////////////////////////////////
+// ==========================================================================
+// Frac - Returns the fractional portion of a scalar or each vector component
+// ==========================================================================
 
 inline __host__ __device__ float fracf(float v)
 {
@@ -1354,9 +1354,9 @@ inline __host__ __device__ float4 fracf(float4 v)
     return make_float4(fracf(v.x), fracf(v.y), fracf(v.z), fracf(v.w));
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// fmod
-////////////////////////////////////////////////////////////////////////////////
+// ======================
+// ======== Fmod ========
+// ======================
 
 inline __host__ __device__ float2 fmodf(float2 a, float2 b)
 {
@@ -1383,9 +1383,9 @@ inline __host__ __device__ float4 fmodf(float4 a, float b)
     return make_float4(fmodf(a.x, b), fmodf(a.y, b), fmodf(a.z, b), fmodf(a.w, b));
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// absolute value
-////////////////////////////////////////////////////////////////////////////////
+// ================================
+// ======== Absolute value ========
+// ================================
 
 inline __host__ __device__ float2 fabs(float2 v)
 {
@@ -1413,32 +1413,32 @@ inline __host__ __device__ int4 abs(int4 v)
     return make_int4(abs(v.x), abs(v.y), abs(v.z), abs(v.w));
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// reflect
-// - returns reflection of incident ray I around surface normal N
+// ===========================================================================
+// Reflect
+// - Returns reflection of incident ray I around surface normal N
 // - N should be normalized, reflected vector's length is equal to length of I
-////////////////////////////////////////////////////////////////////////////////
+// ===========================================================================
 
 inline __host__ __device__ float3 reflect(float3 i, float3 n)
 {
     return i - 2.0f * n * dot(n,i);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// cross product
-////////////////////////////////////////////////////////////////////////////////
+// ===============================
+// ======== Cross product ========
+// ===============================
 
 inline __host__ __device__ float3 cross(float3 a, float3 b)
 {
     return make_float3(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// smoothstep
-// - returns 0 if x < a
-// - returns 1 if x > b
-// - otherwise returns smooth interpolation between 0 and 1 based on x
-////////////////////////////////////////////////////////////////////////////////
+// ===================================================================
+// Smoothstep
+// - Returns 0 if x < a
+// - Returns 1 if x > b
+// - Otherwise returns smooth interpolation between 0 and 1 based on x
+// ===================================================================
 
 inline __device__ __host__ float smoothstep(float a, float b, float x)
 {
@@ -1459,6 +1459,135 @@ inline __device__ __host__ float4 smoothstep(float4 a, float4 b, float4 x)
 {
     float4 y = clamp((x - a) / (b - a), 0.0f, 1.0f);
     return (y*y*(make_float4(3.0f) - (make_float4(2.0f)*y)));
+}
+
+// ========================================
+// ======== Noise helper functions ========
+// ========================================
+
+inline __device__ __host__ float3 mod289(float3 x)
+{
+    return x - floorf(x / 289) * 289;
+}
+
+inline __device__ __host__ float4 mod289(float4 x)
+{
+    return x - floorf(x / 289) * 289;
+}
+
+inline __device__ __host__ float3 permute(float3 x)
+{
+    return mod289((x * 34 + 1) * x);
+}
+
+inline __device__ __host__ float4 permute(float4 x)
+{
+    return mod289((x * 34 + 1) * x);
+}
+
+inline __device__ __host__ float3 fade(float3 t)
+{
+    return t * t * t * (t * (t * 6 - 15) + 10);
+}
+
+// ==============================
+// ======== Perlin noise ========
+// ==============================
+
+inline __device__ __host__ float classic_perlin_impl(float3 pi0, float3 pf0, float3 pi1, float3 pf1)
+{
+    pi0 = mod289(pi0);
+    pi1 = mod289(pi1);
+
+    float4 ix = make_float4(pi0.x, pi1.x, pi0.x, pi1.x);
+    float4 iy = make_float4(pi0.y, pi0.y, pi1.y, pi1.y);
+    float4 iz0 = make_float4(pi0.z);
+    float4 iz1 = make_float4(pi1.z);
+
+    float4 ixy = permute(permute(ix) + iy);
+    float4 ixy0 = permute(ixy + iz0);
+    float4 ixy1 = permute(ixy + iz1);
+
+    float4 gx0 = lerp(make_float4(-1), make_float4(1), fracf(floorf(ixy0 / 7) / 7));
+    float4 gy0 = lerp(make_float4(-1), make_float4(1), fracf(floorf(fmodf(ixy0, 7)) / 7));
+    float4 gz0 = 1 - fabs(gx0) - fabs(gy0);
+
+    // bool4 zn0 = gz0 < -0.01;
+    // gx0 += zn0 * (gx0 < -0.01 ? 1 : -1);
+    // gy0 += zn0 * (gy0 < -0.01 ? 1 : -1);
+
+    int4 zn0;
+    zn0.x = gz0.x < -0.01;
+    zn0.y = gz0.y < -0.01;
+    zn0.z = gz0.z < -0.01;
+    zn0.w = gz0.w < -0.01;
+
+    gx0.x += zn0.x * (gx0.x < -0.01 ? 1 : -1);
+    gx0.y += zn0.y * (gx0.y < -0.01 ? 1 : -1);
+    gx0.z += zn0.z * (gx0.z < -0.01 ? 1 : -1);
+    gx0.w += zn0.w * (gx0.w < -0.01 ? 1 : -1);
+
+    gy0.x += zn0.x * (gy0.x < -0.01 ? 1 : -1);
+    gy0.y += zn0.y * (gy0.y < -0.01 ? 1 : -1);
+    gy0.z += zn0.z * (gy0.z < -0.01 ? 1 : -1);
+    gy0.w += zn0.w * (gy0.w < -0.01 ? 1 : -1);
+
+    float4 gx1 = lerp(make_float4(-1), make_float4(1), fracf(floorf(ixy1 / 7) / 7));
+    float4 gy1 = lerp(make_float4(-1), make_float4(1), fracf(floorf(fmodf(ixy1,7)) / 7));
+    float4 gz1 = 1 - fabs(gx1) - fabs(gy1);
+
+    // bool4 zn1 = gz1 < -0.01;
+    // gx1 += zn1 * (gx1 < -0.01 ? 1 : -1);
+    // gy1 += zn1 * (gy1 < -0.01 ? 1 : -1);
+
+    int4 zn1;
+    zn1.x = gz1.x < -0.01;
+    zn1.y = gz1.y < -0.01;
+    zn1.z = gz1.z < -0.01;
+    zn1.w = gz1.w < -0.01;
+
+    gx1.x += zn1.x * (gx1.x < -0.01 ? 1 : -1);
+    gx1.y += zn1.y * (gx1.y < -0.01 ? 1 : -1);
+    gx1.z += zn1.z * (gx1.z < -0.01 ? 1 : -1);
+    gx1.w += zn1.w * (gx1.w < -0.01 ? 1 : -1);
+
+    gy1.x += zn1.x * (gy1.x < -0.01 ? 1 : -1);
+    gy1.y += zn1.y * (gy1.y < -0.01 ? 1 : -1);
+    gy1.z += zn1.z * (gy1.z < -0.01 ? 1 : -1);
+    gy1.w += zn1.w * (gy1.w < -0.01 ? 1 : -1);
+
+    float3 g000 = normalize(make_float3(gx0.x, gy0.x, gz0.x));
+    float3 g100 = normalize(make_float3(gx0.y, gy0.y, gz0.y));
+    float3 g010 = normalize(make_float3(gx0.z, gy0.z, gz0.z));
+    float3 g110 = normalize(make_float3(gx0.w, gy0.w, gz0.w));
+    float3 g001 = normalize(make_float3(gx1.x, gy1.x, gz1.x));
+    float3 g101 = normalize(make_float3(gx1.y, gy1.y, gz1.y));
+    float3 g011 = normalize(make_float3(gx1.z, gy1.z, gz1.z));
+    float3 g111 = normalize(make_float3(gx1.w, gy1.w, gz1.w));
+
+    float n000 = dot(g000, pf0);
+    float n100 = dot(g100, make_float3(pf1.x, pf0.y, pf0.z));
+    float n010 = dot(g010, make_float3(pf0.x, pf1.y, pf0.z));
+    float n110 = dot(g110, make_float3(pf1.x, pf1.y, pf0.z));
+    float n001 = dot(g001, make_float3(pf0.x, pf0.y, pf1.z));
+    float n101 = dot(g101, make_float3(pf1.x, pf0.y, pf1.z));
+    float n011 = dot(g011, make_float3(pf0.x, pf1.y, pf1.z));
+    float n111 = dot(g111, pf1);
+
+    float3 fade_xyz = fade(pf0);
+    float4 n_z = lerp(make_float4(n000, n100, n010, n110),
+                      make_float4(n001, n101, n011, n111), fade_xyz.z);
+    float2 n_yz = lerp(make_float2(n_z.x, n_z.y),
+                      make_float2(n_z.z, n_z.w), fade_xyz.y);
+    float n_xyz = lerp(n_yz.x, n_yz.y, fade_xyz.x);
+    return 1.46 * n_xyz;
+}
+
+inline __device__ __host__ float classic_perlin(float3 p)
+{
+    float3 i = floorf(p);
+    float3 f = fracf(p);
+    return classic_perlin_impl(i, f, i + 1, f - 1);
 }
 
 #endif

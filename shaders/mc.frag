@@ -33,7 +33,8 @@ void main()
   float attenuation = constantAttenuation +
                       linearAttenuation * distToLight +
                       quadraticAttenuation * distToLight * distToLight;
-    
-  vec3 result = (ambient + (diffuse / attenuation)) * vec3(0.15f, 0.4f, 0.0f);
+  
+  vec3 greenColor = vec3(0.15f, 0.4f, 0.0f);
+  vec3 result = (ambient + (diffuse / attenuation)) * greenColor;
   fragColor = vec4(result, 1.0);
 }

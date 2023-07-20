@@ -58,7 +58,7 @@ uint numVoxels = 0;
 uint maxVerts = 0;
 uint totalVerts = 0;
 
-float isoValue = -0.4f;
+float isoValue = 0.4f;
 
 // OpenGL
 GLuint posVbo, normalVbo;
@@ -305,12 +305,12 @@ int main()
   glUniform3f(glGetUniformLocation(shaderProgram, "Ka"), 0.2f, 0.2f, 0.2f);
   glUniform3f(glGetUniformLocation(shaderProgram, "Kd"), 0.9f, 0.9f, 0.9f);
 
-  glUniform3f(glGetUniformLocation(shaderProgram, "lightPosition"), 4.0f, 4.0f, 4.0f);
+  glUniform3f(glGetUniformLocation(shaderProgram, "lightPosition"), 3.0f, 3.0f, 3.0f);
   
   glUniform1ui(glGetUniformLocation(shaderProgram, "shininess"), 100);
   glUniform1f(glGetUniformLocation(shaderProgram, "constantAttenuation"), 0.001f);
-  glUniform1f(glGetUniformLocation(shaderProgram, "linearAttenuation"), 0.01f);
-  glUniform1f(glGetUniformLocation(shaderProgram, "quadraticAttenuation"), 0.0001f);
+  glUniform1f(glGetUniformLocation(shaderProgram, "linearAttenuation"), 0.1f);
+  glUniform1f(glGetUniformLocation(shaderProgram, "quadraticAttenuation"), 0.001f);
 
   glBindVertexArray(0);
 
