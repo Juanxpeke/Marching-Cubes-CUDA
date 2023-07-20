@@ -682,6 +682,10 @@ inline __host__ __device__ float4 operator-(float4 a, float b)
 {
     return make_float4(a.x - b, a.y - b, a.z - b,  a.w - b);
 }
+inline __host__ __device__ float4 operator-(float b, float4 a)
+{
+    return make_float4(b - a.x, b - a.y, b - a.z, b - a.w);
+}
 inline __host__ __device__ void operator-=(float4 &a, float b)
 {
     a.x -= b;
@@ -1159,6 +1163,18 @@ inline __device__ __host__ float4 lerp(float4 a, float4 b, float t)
 {
     return a + t*(b-a);
 }
+inline __device__ __host__ float2 lerp(float2 a, float2 b, float2 t)
+{
+    return make_float2(lerp(a.x, b.x, t.x), lerp(a.y, b.y, t.y));
+}
+inline __device__ __host__ float3 lerp(float3 a, float3 b, float3 t)
+{
+    return make_float3(lerp(a.x, b.x, t.x), lerp(a.y, b.y, t.y), lerp(a.z, b.z, t.z));
+}
+inline __device__ __host__ float4 lerp(float4 a, float4 b, float4 t)
+{
+    return make_float4(lerp(a.x, b.x, t.x), lerp(a.y, b.y, t.y), lerp(a.z, b.z, t.z), lerp(a.w, b.w, t.w));
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // clamp
@@ -1386,6 +1402,18 @@ inline __host__ __device__ float3 fmodf(float3 a, float3 b)
 inline __host__ __device__ float4 fmodf(float4 a, float4 b)
 {
     return make_float4(fmodf(a.x, b.x), fmodf(a.y, b.y), fmodf(a.z, b.z), fmodf(a.w, b.w));
+}
+inline __host__ __device__ float2 fmodf(float2 a, float b)
+{
+    return make_float2(fmodf(a.x, b), fmodf(a.y, b));
+}
+inline __host__ __device__ float3 fmodf(float3 a, float b)
+{
+    return make_float3(fmodf(a.x, b), fmodf(a.y, b), fmodf(a.z, b));
+}
+inline __host__ __device__ float4 fmodf(float4 a, float b)
+{
+    return make_float4(fmodf(a.x, b), fmodf(a.y, b), fmodf(a.z, b), fmodf(a.w, b));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
