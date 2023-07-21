@@ -43,9 +43,10 @@ __device__ float sphere(float x, float y, float z)
 __device__ float noise_terrain(float x, float y, float z)
 {
   float density = y;
-  density += classic_perlin(make_float3(x, y, z) * 4.03f) * 0.25f;
-  density += classic_perlin(make_float3(x, y, z) * 1.96f) * 0.5f;
-  density += classic_perlin(make_float3(x, y, z) * 1.01f) * 1.0f;
+  density += classic_perlin(make_float3(x, y, z) * 2.03f) * 0.35f;
+  density += classic_perlin(make_float3(x, y, z) * 0.96f) * 0.5f;
+  density += classic_perlin(make_float3(x, y, z) * 3.07f) * 0.12f;
+  density += classic_perlin(make_float3(x, y, z) * 1.34f) * 0.93f;
 
   return density;
 }
@@ -121,6 +122,7 @@ __global__ void classifyVoxel(
   uint *voxelVerts, uint *voxelOccupied, // Global data
   uint3 gridSize, uint3 gridSizeShift, uint3 gridSizeMask, // Grid values
   uint numVoxels, float3 voxelSize, float isoValue, // More values
+  float3 positionOffset, // Position in the voxel world
   cudaTextureObject_t numVertsTex) // CUDA texture
 {
   uint blockId = __mul24(blockIdx.y, gridDim.x) + blockIdx.x;
@@ -134,14 +136,14 @@ __global__ void classifyVoxel(
   p.z = (-0.5 * gridSize.z + gridPos.z) * voxelSize.z;
 
   float field[8];
-  field[0] = fieldFunc(p);
-  field[1] = fieldFunc(p + make_float3(voxelSize.x, 0, 0));
-  field[2] = fieldFunc(p + make_float3(voxelSize.x, voxelSize.y, 0));
-  field[3] = fieldFunc(p + make_float3(0, voxelSize.y, 0));
-  field[4] = fieldFunc(p + make_float3(0, 0, voxelSize.z));
-  field[5] = fieldFunc(p + make_float3(voxelSize.x, 0, voxelSize.z));
-  field[6] = fieldFunc(p + make_float3(voxelSize.x, voxelSize.y, voxelSize.z));
-  field[7] = fieldFunc(p + make_float3(0, voxelSize.y, voxelSize.z));
+  field[0] = fieldFunc(p + positionOffset);
+  field[1] = fieldFunc(p + positionOffset + make_float3(voxelSize.x, 0, 0));
+  field[2] = fieldFunc(p + positionOffset + make_float3(voxelSize.x, voxelSize.y, 0));
+  field[3] = fieldFunc(p + positionOffset + make_float3(0, voxelSize.y, 0));
+  field[4] = fieldFunc(p + positionOffset + make_float3(0, 0, voxelSize.z));
+  field[5] = fieldFunc(p + positionOffset + make_float3(voxelSize.x, 0, voxelSize.z));
+  field[6] = fieldFunc(p + positionOffset + make_float3(voxelSize.x, voxelSize.y, voxelSize.z));
+  field[7] = fieldFunc(p + positionOffset + make_float3(0, voxelSize.y, voxelSize.z));
 
 
   // Calculate flag indicating if each vertex is inside or outside isosurface
@@ -171,6 +173,7 @@ __global__ void generateTriangles(
   uint *numVertsScanned, // Global data
   uint3 gridSize, uint3 gridSizeShift, uint3 gridSizeMask, // Grid values
   float3 voxelSize, float isoValue, uint maxVerts, // More values
+  float3 positionOffset, // Position in the voxel world
   cudaTextureObject_t triTex, cudaTextureObject_t numVertsTex) // CUDA textures
 {
   uint blockId = __mul24(blockIdx.y, gridDim.x) + blockIdx.x;
@@ -194,14 +197,14 @@ __global__ void generateTriangles(
   v[7] = p + make_float3(0, voxelSize.y, voxelSize.z);
 
   float4 field[8];
-  field[0] = fieldFunc4(v[0]);
-  field[1] = fieldFunc4(v[1]);
-  field[2] = fieldFunc4(v[2]);
-  field[3] = fieldFunc4(v[3]);
-  field[4] = fieldFunc4(v[4]);
-  field[5] = fieldFunc4(v[5]);
-  field[6] = fieldFunc4(v[6]);
-  field[7] = fieldFunc4(v[7]);
+  field[0] = fieldFunc4(v[0] + positionOffset);
+  field[1] = fieldFunc4(v[1] + positionOffset);
+  field[2] = fieldFunc4(v[2] + positionOffset);
+  field[3] = fieldFunc4(v[3] + positionOffset);
+  field[4] = fieldFunc4(v[4] + positionOffset);
+  field[5] = fieldFunc4(v[5] + positionOffset);
+  field[6] = fieldFunc4(v[6] + positionOffset);
+  field[7] = fieldFunc4(v[7] + positionOffset);
 
   // Recalculate flag (this is faster than storing it in global memory)
   uint cubeindex;
@@ -321,12 +324,14 @@ extern "C" void launchClassifyVoxel(
   uint *voxelVerts, uint *voxelOccupied,
   uint3 gridSize, uint3 gridSizeShift,
   uint3 gridSizeMask, uint numVoxels,
-  float3 voxelSize, float isoValue)
+  float3 voxelSize, float isoValue,
+  float3 positionOffset)
 {
   classifyVoxel<<<grid, threads>>>(
   voxelVerts, voxelOccupied,
   gridSize, gridSizeShift, gridSizeMask,
   numVoxels, voxelSize, isoValue,
+  positionOffset,
   numVertsTex);
 }
 
@@ -335,13 +340,15 @@ extern "C" void launchGenerateTriangles(
   float4 *pos, float4 *norm,
   uint *numVertsScanned,
   uint3 gridSize, uint3 gridSizeShift, uint3 gridSizeMask,
-  float3 voxelSize, float isoValue, uint maxVerts)
+  float3 voxelSize, float isoValue, uint maxVerts,
+  float3 positionOffset)
 {
   generateTriangles<<<grid, NTHREADS>>>(
     pos, norm, 
     numVertsScanned,
     gridSize, gridSizeShift, gridSizeMask,
     voxelSize, isoValue, maxVerts,
+    positionOffset,
     triTex, numVertsTex);
 }
 

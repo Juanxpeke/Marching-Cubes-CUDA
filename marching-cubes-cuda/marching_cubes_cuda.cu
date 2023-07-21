@@ -28,14 +28,16 @@ extern "C" void launchClassifyVoxel(
   dim3 blocks, dim3 threads,
   uint *voxelVerts, uint *voxelOccupied,
   uint3 gridSize, uint3 gridSizeShift, uint3 gridSizeMask,
-  uint numVoxels, float3 voxelSize, float isoValue);
+  uint numVoxels, float3 voxelSize, float isoValue,
+  float3 positionOffset);
 
 extern "C" void launchGenerateTriangles(
   dim3 blocks, dim3 threads,
   float4 *pos, float4 *norm,
   uint *numVertsScanned,
   uint3 gridSize, uint3 gridSizeShift, uint3 gridSizeMask,
-  float3 voxelSize, float isoValue, uint maxVerts);
+  float3 voxelSize, float isoValue, uint maxVerts,
+  float3 positionOffset);
 
 extern "C" void allocateTextures(uint **dEdgeTable, uint **dTriTable,
                                  uint **dNumVertsTable);
@@ -46,7 +48,7 @@ extern "C" void ThrustScanWrapper(unsigned int *output, unsigned int *input,
                                   unsigned int numElements);
 
 // MC variables
-uint3 gridSizeLog2 = make_uint3(6, 6, 6);
+uint3 gridSizeLog2 = make_uint3(2, 2, 2);
 uint3 gridSizeShift;
 uint3 gridSize;
 uint3 gridSizeMask;
@@ -58,7 +60,9 @@ uint numVoxels = 0;
 uint maxVerts = 0;
 uint totalVerts = 0;
 
-float isoValue = 0.4f;
+float3 positionOffset = make_float3(0.0f, 0.0f, 0.0f);
+float isoValue = 0.2f;
+float dIsoValue = 0.2f;
 
 // OpenGL
 GLuint posVbo, normalVbo;
@@ -102,7 +106,7 @@ void initMarchingCubes()
 
   numVoxels = gridSize.x * gridSize.y * gridSize.z;
   voxelSize = make_float3(worldSize / gridSize.x, worldSize / gridSize.y, worldSize / gridSize.z);
-  maxVerts = gridSize.x * gridSize.y * 100;
+  maxVerts = gridSize.x * gridSize.y * 100; // TODO
 
   // Create VBOs
   createVBO(&posVbo, maxVerts * sizeof(float) * 4);
@@ -140,7 +144,8 @@ void computeIsosurface()
     blocks, threads,
     dVoxelVerts, dVoxelOccupied,
     gridSize, gridSizeShift, gridSizeMask,
-    numVoxels, voxelSize, isoValue);
+    numVoxels, voxelSize, isoValue,
+    positionOffset);
   cudaDeviceSynchronize();
   performanceMonitor->endProcessTimer(PerformanceMonitor::CLASSIFY_PROCESS);  
 
@@ -176,7 +181,8 @@ void computeIsosurface()
     dPos, dNormal,
     dVoxelVertsScan,
     gridSize, gridSizeShift, gridSizeMask,
-    voxelSize, isoValue, maxVerts);
+    voxelSize, isoValue, maxVerts,
+    positionOffset);
   cudaDeviceSynchronize();
   performanceMonitor->endProcessTimer(PerformanceMonitor::GENERATE_TRIANGLES_PROCESS);
 
@@ -185,13 +191,32 @@ void computeIsosurface()
 }
 
 // Function to handle mouse movement
-void handleMouseMove(GLFWwindow* window, double xPos, double yPos) {
+void handleMouseMove(GLFWwindow* window, double xPos, double yPos)
+{
   camera->handleMouseMove(xPos, yPos);
 }
 
 // Function to handle mouse button events
-void handleMouseClick(GLFWwindow* window, int button, int action, int mods) {
+void handleMouseClick(GLFWwindow* window, int button, int action, int mods)
+{
   camera->handleMouseClick(button, action, mods);
+}
+
+// Voxel world movement input handle
+void handleVoxelWorldMovement(GLFWwindow* window, float dt)
+{
+  if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+    positionOffset.z += dt * 0.6f;
+  }
+  if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+    positionOffset.x -= dt * 0.6f;
+  }
+  if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
+    positionOffset.z -= dt * 0.6f;
+  }
+  if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
+    positionOffset.x += dt * 0.6f;
+  }
 }
 
 int main()
@@ -334,12 +359,19 @@ int main()
 
     performanceMonitor->update(glfwGetTime());
     camera->update(performanceMonitor->dt);
+    handleVoxelWorldMovement(window, performanceMonitor-> dt);
 
     sprintf(title, "CUDA Marching Cubes [%.1f FPS]", performanceMonitor->framesPerSecond);
     glfwSetWindowTitle(window, title);
 
     glUseProgram(shaderProgram);
     glBindVertexArray(VAO);
+
+#if ENABLE_ISOVALUE_ANIMATION
+    if (isoValue < MIN_ISOVALUE) { isoValue = MIN_ISOVALUE; dIsoValue *= dIsoValue > 0 ? 1 : -1; }
+    else if (isoValue > MAX_ISOVALUE) { isoValue = MAX_ISOVALUE; dIsoValue *= dIsoValue < 0 ? 1 : -1; }
+    isoValue += dIsoValue * performanceMonitor-> dt;
+#endif
 
     performanceMonitor->startProcessTimer(PerformanceMonitor::MARCHING_CUBE_PROCESS);
     computeIsosurface();

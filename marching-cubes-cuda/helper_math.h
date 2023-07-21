@@ -1490,9 +1490,11 @@ inline __device__ __host__ float3 fade(float3 t)
     return t * t * t * (t * (t * 6 - 15) + 10);
 }
 
-// ==============================
-// ======== Perlin noise ========
-// ==============================
+// =================================================================================
+// Perlin noise
+// - Code based on https://github.com/keijiro/NoiseShader/tree/master implementation
+// - Specifically, see Packages/jp.keijiro.noiseshader/Shader/ClassicNoise3D.hlsl
+// =================================================================================
 
 inline __device__ __host__ float classic_perlin_impl(float3 pi0, float3 pf0, float3 pi1, float3 pf1)
 {

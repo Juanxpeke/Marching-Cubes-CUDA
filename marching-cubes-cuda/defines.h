@@ -21,4 +21,9 @@ typedef unsigned char uchar;
 #define DISABLE_FPS_CAPPING 1
 #define ENABLE_FACE_CULLING 1
 
+// Misc
+#define ENABLE_ISOVALUE_ANIMATION 1
+#define MIN_ISOVALUE 0.01f
+#define MAX_ISOVALUE 1.00f
+
 #endif
